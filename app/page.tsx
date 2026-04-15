@@ -78,7 +78,7 @@ export default function Home() {
           <div className="flex flex-col items-center justify-center h-full gap-6 text-center pb-10">
             <div className="text-7xl">🧪</div>
             <div>
-              <h2 className="text-2xl font-semibold text-gray-800">What's in your food?</h2>
+              <h2 className="text-2xl font-semibold text-gray-800">What&apos;s in your food?</h2>
               <p className="text-gray-500 mt-2 max-w-sm">
                 Ask about any ingredient — discover its active compounds, health benefits, and the combinations that unlock its full potential.
               </p>
