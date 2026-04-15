@@ -6,12 +6,12 @@ import ReactMarkdown from "react-markdown";
 type Message = { role: "user" | "assistant"; content: string };
 
 const SUGGESTIONS = [
-  "What does turmeric do and how do I activate it?",
-  "Why add black pepper to turmeric dishes?",
-  "What happens to garlic when you cook it?",
-  "Does spinach block iron absorption?",
-  "How do I get the most out of broccoli?",
-  "What makes tomatoes healthier when cooked?",
+  { label: "🍛 Anti-inflammatory recipe", prompt: "Give me a recipe that fights inflammation" },
+  { label: "🫀 Heart-healthy dinner", prompt: "Give me a heart-healthy dinner recipe with science explanations" },
+  { label: "⚡ Energy-boosting breakfast", prompt: "Give me an energy-boosting breakfast recipe" },
+  { label: "🧪 What does turmeric do?", prompt: "What does turmeric do and how do I activate it?" },
+  { label: "🧄 Garlic & cooking", prompt: "What happens to garlic when you cook it?" },
+  { label: "🥦 How to get the most from broccoli?", prompt: "How do I get the most out of broccoli?" },
 ];
 
 export default function Home() {
@@ -86,11 +86,11 @@ export default function Home() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg mt-2">
               {SUGGESTIONS.map((s) => (
                 <button
-                  key={s}
-                  onClick={() => send(s)}
+                  key={s.prompt}
+                  onClick={() => send(s.prompt)}
                   className="text-left text-sm bg-white border border-gray-200 rounded-xl px-4 py-3 hover:bg-green-50 hover:border-green-300 transition-all text-gray-700 shadow-sm"
                 >
-                  {s}
+                  {s.label}
                 </button>
               ))}
             </div>
