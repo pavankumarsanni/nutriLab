@@ -1,101 +1,172 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useRef, useEffect, FormEvent } from "react";
+import ReactMarkdown from "react-markdown";
+
+type Message = { role: "user" | "assistant"; content: string };
+
+const SUGGESTIONS = [
+  "What does turmeric do and how do I activate it?",
+  "Why add black pepper to turmeric dishes?",
+  "What happens to garlic when you cook it?",
+  "Does spinach block iron absorption?",
+  "How do I get the most out of broccoli?",
+  "What makes tomatoes healthier when cooked?",
+];
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const send = async (text: string) => {
+    if (!text.trim() || loading) return;
+
+    const userMsg: Message = { role: "user", content: text };
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
+
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, history }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: `Sorry, I ran into an issue: ${msg}` },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    send(input);
+  };
+
+  return (
+    <main className="flex flex-col h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm">
+        <div className="w-9 h-9 bg-green-600 rounded-full flex items-center justify-center text-xl">
+          🧪
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+        <div>
+          <h1 className="font-semibold text-gray-900 leading-tight">NutriLab</h1>
+          <p className="text-xs text-gray-500">The science behind your ingredients</p>
+        </div>
+      </header>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full gap-6 text-center pb-10">
+            <div className="text-7xl">🧪</div>
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-800">What's in your food?</h2>
+              <p className="text-gray-500 mt-2 max-w-sm">
+                Ask about any ingredient — discover its active compounds, health benefits, and the combinations that unlock its full potential.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg mt-2">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => send(s)}
+                  className="text-left text-sm bg-white border border-gray-200 rounded-xl px-4 py-3 hover:bg-green-50 hover:border-green-300 transition-all text-gray-700 shadow-sm"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {messages.map((m, i) => (
+              <div
+                key={i}
+                className={`flex items-end gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                {m.role === "assistant" && (
+                  <div className="w-7 h-7 bg-green-600 rounded-full flex items-center justify-center text-sm flex-shrink-0 mb-0.5">
+                    🧪
+                  </div>
+                )}
+                <div
+                  className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+                    m.role === "user"
+                      ? "bg-green-600 text-white rounded-br-sm whitespace-pre-wrap"
+                      : "bg-white text-gray-800 border border-gray-200 rounded-bl-sm"
+                  }`}
+                >
+                  {m.role === "user" ? (
+                    m.content
+                  ) : (
+                    <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-headings:font-semibold">
+                      <ReactMarkdown>{m.content}</ReactMarkdown>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {loading && (
+              <div className="flex items-end gap-2 justify-start">
+                <div className="w-7 h-7 bg-green-600 rounded-full flex items-center justify-center text-sm flex-shrink-0">
+                  🧪
+                </div>
+                <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+                  <div className="flex gap-1.5 items-center h-4">
+                    {[0, 150, 300].map((delay) => (
+                      <div
+                        key={delay}
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: `${delay}ms` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="bg-white border-t border-gray-200 px-4 py-3">
+        <form onSubmit={handleSubmit} className="flex gap-2 max-w-3xl mx-auto">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask about any ingredient or combination…"
+            disabled={loading}
+            className="flex-1 border border-gray-300 rounded-full px-5 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-50"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          <button
+            type="submit"
+            disabled={!input.trim() || loading}
+            className="bg-green-600 text-white rounded-full px-5 py-2.5 text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Send
+          </button>
+        </form>
+      </div>
+    </main>
   );
 }
