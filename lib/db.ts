@@ -76,6 +76,20 @@ export async function runMigrations() {
   }
 }
 
+// ── Users ─────────────────────────────────────────────────────────────────────
+
+export async function upsertUser(email: string, name: string | null, image: string | null) {
+  const id = crypto.randomUUID();
+  const result = await getPool().query(
+    `INSERT INTO users (id, email, name, image)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, image = EXCLUDED.image
+     RETURNING id`,
+    [id, email, name, image]
+  );
+  return result.rows[0];
+}
+
 // ── Conversations ─────────────────────────────────────────────────────────────
 
 export async function getConversations(userId: string) {
