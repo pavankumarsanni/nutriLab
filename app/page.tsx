@@ -246,40 +246,6 @@ export default function Home() {
           <h1 className="font-semibold text-gray-900 leading-tight">NutriLab</h1>
           <p className="text-xs text-gray-500">The science behind your ingredients</p>
         </div>
-        <button
-          onClick={() => setShowMealPlanModal(true)}
-          className="flex items-center gap-1.5 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg px-3 py-1.5 transition-colors"
-          title="Generate Meal Plan"
-        >
-          <span>🗓️</span>
-          <span className="hidden sm:inline font-medium">Meal Plan</span>
-        </button>
-        {mealPlans.length > 0 && (
-          <button
-            onClick={() => setShowSavedPlans(true)}
-            className="flex items-center gap-1.5 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg px-3 py-1.5 transition-colors"
-            title="Saved Plans"
-          >
-            <span>📅</span>
-            <span className="hidden sm:inline font-medium">Plans</span>
-            <span className="bg-purple-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
-              {mealPlans.length}
-            </span>
-          </button>
-        )}
-        <button
-          onClick={() => setShowRecipes(true)}
-          className="flex items-center gap-1.5 text-sm text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg px-3 py-1.5 transition-colors"
-          title="Saved Recipes"
-        >
-          <span>📋</span>
-          <span className="hidden sm:inline font-medium">Saved</span>
-          {savedRecipes.length > 0 && (
-            <span className="bg-green-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
-              {savedRecipes.length}
-            </span>
-          )}
-        </button>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -291,6 +257,11 @@ export default function Home() {
             onSelect={handleSelectConversation}
             onNew={handleNewChat}
             onDelete={handleDeleteConversation}
+            onMealPlan={() => setShowMealPlanModal(true)}
+            onSavedRecipes={() => setShowRecipes(true)}
+            onSavedPlans={() => setShowSavedPlans(true)}
+            savedRecipesCount={savedRecipes.length}
+            savedPlansCount={mealPlans.length}
             user={session.user}
           />
         )}
