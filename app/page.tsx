@@ -6,10 +6,13 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Sidebar from "./components/Sidebar";
 import SavedRecipes from "./components/SavedRecipes";
+import MealPlanModal from "./components/MealPlanModal";
+import SavedPlans from "./components/SavedPlans";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; updated_at: string };
 type Recipe = { id: string; title: string; content: string; created_at: string };
+type MealPlan = { id: string; title: string; goal: string; diet: string; duration: number; content: string; created_at: string };
 
 const SUGGESTIONS = [
   { label: "🍛 Anti-inflammatory recipe", prompt: "Give me a recipe that fights inflammation" },
@@ -31,6 +34,9 @@ export default function Home() {
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
   const [showRecipes, setShowRecipes] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
+  const [showMealPlanModal, setShowMealPlanModal] = useState(false);
+  const [showSavedPlans, setShowSavedPlans] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,6 +48,7 @@ export default function Home() {
     if (session?.user) {
       fetchConversations();
       fetchSavedRecipes();
+      fetchMealPlans();
     }
   }, [session]);
 
@@ -74,6 +81,21 @@ export default function Home() {
       setSavedRecipes((prev) => [newRecipe, ...prev]);
       setSavedIds((prev) => { const s = new Set(Array.from(prev)); s.add(data.id); return s; });
     }
+  };
+
+  const fetchMealPlans = async () => {
+    const res = await fetch("/api/meal-plans");
+    const data = await res.json();
+    if (data.plans) setMealPlans(data.plans);
+  };
+
+  const handleMealPlanSaved = (plan: MealPlan) => {
+    setMealPlans((prev) => [plan, ...prev]);
+  };
+
+  const handleDeleteMealPlan = async (id: string) => {
+    await fetch(`/api/meal-plans/${id}`, { method: "DELETE" });
+    setMealPlans((prev) => prev.filter((p) => p.id !== id));
   };
 
   const handleDeleteRecipe = async (id: string) => {
@@ -195,6 +217,19 @@ export default function Home() {
           onClose={() => setShowRecipes(false)}
         />
       )}
+      {showMealPlanModal && (
+        <MealPlanModal
+          onClose={() => setShowMealPlanModal(false)}
+          onSaved={(plan) => { handleMealPlanSaved(plan); }}
+        />
+      )}
+      {showSavedPlans && (
+        <SavedPlans
+          plans={mealPlans}
+          onDelete={handleDeleteMealPlan}
+          onClose={() => setShowSavedPlans(false)}
+        />
+      )}
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm z-10 flex-shrink-0">
         <button
@@ -211,6 +246,27 @@ export default function Home() {
           <h1 className="font-semibold text-gray-900 leading-tight">NutriLab</h1>
           <p className="text-xs text-gray-500">The science behind your ingredients</p>
         </div>
+        <button
+          onClick={() => setShowMealPlanModal(true)}
+          className="flex items-center gap-1.5 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg px-3 py-1.5 transition-colors"
+          title="Generate Meal Plan"
+        >
+          <span>🗓️</span>
+          <span className="hidden sm:inline font-medium">Meal Plan</span>
+        </button>
+        {mealPlans.length > 0 && (
+          <button
+            onClick={() => setShowSavedPlans(true)}
+            className="flex items-center gap-1.5 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg px-3 py-1.5 transition-colors"
+            title="Saved Plans"
+          >
+            <span>📅</span>
+            <span className="hidden sm:inline font-medium">Plans</span>
+            <span className="bg-purple-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+              {mealPlans.length}
+            </span>
+          </button>
+        )}
         <button
           onClick={() => setShowRecipes(true)}
           className="flex items-center gap-1.5 text-sm text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg px-3 py-1.5 transition-colors"

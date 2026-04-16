@@ -62,6 +62,18 @@ export async function runMigrations() {
       );
       CREATE INDEX IF NOT EXISTS idx_saved_recipes_user ON saved_recipes(user_id, created_at DESC);
 
+      CREATE TABLE IF NOT EXISTS meal_plans (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        goal TEXT NOT NULL,
+        diet TEXT NOT NULL,
+        duration INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_meal_plans_user ON meal_plans(user_id, created_at DESC);
+
       CREATE TABLE IF NOT EXISTS conversations (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -97,6 +109,33 @@ export async function upsertUser(email: string, name: string | null, image: stri
     [id, email, name, image]
   );
   return result.rows[0];
+}
+
+// ── Meal Plans ────────────────────────────────────────────────────────────────
+
+export async function getMealPlans(userId: string) {
+  const result = await getPool().query(
+    `SELECT id, title, goal, diet, duration, content, created_at FROM meal_plans WHERE user_id = $1 ORDER BY created_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+export async function saveMealPlan(
+  id: string, userId: string, title: string,
+  goal: string, diet: string, duration: number, content: string
+) {
+  await getPool().query(
+    `INSERT INTO meal_plans (id, user_id, title, goal, diet, duration, content) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [id, userId, title, goal, diet, duration, content]
+  );
+}
+
+export async function deleteMealPlan(id: string, userId: string) {
+  await getPool().query(
+    `DELETE FROM meal_plans WHERE id = $1 AND user_id = $2`,
+    [id, userId]
+  );
 }
 
 // ── Conversations ─────────────────────────────────────────────────────────────
