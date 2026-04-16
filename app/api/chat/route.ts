@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { createConversation, saveMessage } from "@/lib/db";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -81,8 +84,24 @@ type Message = { role: "user" | "assistant"; content: string };
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, history }: { message: string; history: Message[] } = await req.json();
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+    const { message, history, conversationId: existingConvId }:
+      { message: string; history: Message[]; conversationId: string | null } = await req.json();
+
+    // Auto-create conversation on first message
+    let conversationId = existingConvId;
+    if (!conversationId) {
+      conversationId = crypto.randomUUID();
+      const title = message.slice(0, 60) + (message.length > 60 ? "…" : "");
+      await createConversation(conversationId, session.user.id, title);
+    }
+
+    // Save user message
+    await saveMessage(crypto.randomUUID(), conversationId, "user", message);
+
+    // Call Claude
     const response = await client.messages.create({
       model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
       max_tokens: 2048,
@@ -91,7 +110,11 @@ export async function POST(req: NextRequest) {
     });
 
     const reply = response.content[0].type === "text" ? response.content[0].text : "";
-    return Response.json({ reply });
+
+    // Save assistant response
+    await saveMessage(crypto.randomUUID(), conversationId, "assistant", reply);
+
+    return Response.json({ reply, conversationId });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return Response.json({ error: msg }, { status: 500 });
