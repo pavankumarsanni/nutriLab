@@ -341,17 +341,24 @@ function SaveButton({
 }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(false);
+
+  // suppress unused warning — savedIds is used by parent to track per-id state
+  void savedIds;
 
   const handle = async () => {
     if (saving || saved) return;
     setSaving(true);
-    await onSave(content);
-    setSaving(false);
-    setSaved(true);
+    setError(false);
+    try {
+      await onSave(content);
+      setSaved(true);
+    } catch {
+      setError(true);
+    } finally {
+      setSaving(false);
+    }
   };
-
-  // suppress unused warning — savedIds is used by parent to track per-id state
-  void savedIds;
 
   return (
     <div className="flex justify-end mt-2">
@@ -361,11 +368,13 @@ function SaveButton({
         className={`flex items-center gap-1 text-[11px] rounded-full px-2.5 py-1 transition-colors ${
           saved
             ? "text-green-700 bg-green-50 border border-green-200"
+            : error
+            ? "text-red-500 bg-red-50 border border-red-200 hover:bg-red-100"
             : "text-gray-400 hover:text-green-600 hover:bg-green-50 border border-transparent"
         }`}
-        title={saved ? "Saved!" : "Save recipe"}
+        title={saved ? "Saved!" : error ? "Failed — click to retry" : "Save recipe"}
       >
-        {saved ? "✓ Saved" : saving ? "Saving…" : "🔖 Save"}
+        {saved ? "✓ Saved" : saving ? "Saving…" : error ? "⚠ Retry" : "🔖 Save"}
       </button>
     </div>
   );
