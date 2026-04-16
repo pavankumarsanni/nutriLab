@@ -4,7 +4,6 @@ import PostgresAdapter from "@auth/pg-adapter";
 import { getPool } from "./db";
 
 export const authOptions: NextAuthOptions = {
-  // @ts-expect-error — @auth/pg-adapter is compatible with next-auth v4 but types diverge slightly
   adapter: PostgresAdapter(getPool()),
   providers: [
     GoogleProvider({
