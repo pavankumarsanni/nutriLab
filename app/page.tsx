@@ -5,9 +5,11 @@ import { useSession, signIn } from "next-auth/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Sidebar from "./components/Sidebar";
+import SavedRecipes from "./components/SavedRecipes";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; updated_at: string };
+type Recipe = { id: string; title: string; content: string; created_at: string };
 
 const SUGGESTIONS = [
   { label: "🍛 Anti-inflammatory recipe", prompt: "Give me a recipe that fights inflammation" },
@@ -26,21 +28,58 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
+  const [showRecipes, setShowRecipes] = useState(false);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // Load conversations when signed in
+  // Load conversations and saved recipes when signed in
   useEffect(() => {
-    if (session?.user) fetchConversations();
+    if (session?.user) {
+      fetchConversations();
+      fetchSavedRecipes();
+    }
   }, [session]);
 
   const fetchConversations = async () => {
     const res = await fetch("/api/conversations");
     const data = await res.json();
     if (data.conversations) setConversations(data.conversations);
+  };
+
+  const fetchSavedRecipes = async () => {
+    const res = await fetch("/api/recipes");
+    const data = await res.json();
+    if (data.recipes) {
+      setSavedRecipes(data.recipes);
+      setSavedIds(new Set(data.recipes.map((r: Recipe) => r.id)));
+    }
+  };
+
+  const handleSaveRecipe = async (content: string) => {
+    const firstLine = content.split("\n").find((l) => l.trim()) ?? "Saved Recipe";
+    const title = firstLine.replace(/^#+\s*/, "").replace(/\*+/g, "").trim().slice(0, 80);
+    const res = await fetch("/api/recipes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, content }),
+    });
+    const data = await res.json();
+    if (data.id) {
+      const newRecipe: Recipe = { id: data.id, title, content, created_at: new Date().toISOString() };
+      setSavedRecipes((prev) => [newRecipe, ...prev]);
+      setSavedIds((prev) => { const s = new Set(Array.from(prev)); s.add(data.id); return s; });
+    }
+  };
+
+  const handleDeleteRecipe = async (id: string) => {
+    await fetch(`/api/recipes/${id}`, { method: "DELETE" });
+    setSavedRecipes((prev) => prev.filter((r) => r.id !== id));
+    setSavedIds((prev) => { const s = new Set(prev); s.delete(id); return s; });
   };
 
   const handleSelectConversation = async (id: string) => {
@@ -149,6 +188,13 @@ export default function Home() {
   // ── Main app ─────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-gray-50">
+      {showRecipes && (
+        <SavedRecipes
+          recipes={savedRecipes}
+          onDelete={handleDeleteRecipe}
+          onClose={() => setShowRecipes(false)}
+        />
+      )}
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm z-10 flex-shrink-0">
         <button
@@ -161,10 +207,23 @@ export default function Home() {
         <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-lg flex-shrink-0">
           🧪
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="font-semibold text-gray-900 leading-tight">NutriLab</h1>
           <p className="text-xs text-gray-500">The science behind your ingredients</p>
         </div>
+        <button
+          onClick={() => setShowRecipes(true)}
+          className="flex items-center gap-1.5 text-sm text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg px-3 py-1.5 transition-colors"
+          title="Saved Recipes"
+        >
+          <span>📋</span>
+          <span className="hidden sm:inline font-medium">Saved</span>
+          {savedRecipes.length > 0 && (
+            <span className="bg-green-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+              {savedRecipes.length}
+            </span>
+          )}
+        </button>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -219,9 +278,12 @@ export default function Home() {
                         : "bg-white text-gray-800 border border-gray-200 rounded-bl-sm"
                     }`}>
                       {m.role === "user" ? m.content : (
-                        <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-headings:font-semibold prose-table:text-xs prose-th:bg-green-50 prose-th:text-green-900 prose-th:font-semibold prose-td:border-gray-200 prose-tr:border-gray-200">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
-                        </div>
+                        <>
+                          <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-headings:font-semibold prose-table:text-xs prose-th:bg-green-50 prose-th:text-green-900 prose-th:font-semibold prose-td:border-gray-200 prose-tr:border-gray-200">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                          </div>
+                          <SaveButton content={m.content} savedIds={savedIds} onSave={handleSaveRecipe} />
+                        </>
                       )}
                     </div>
                   </div>
@@ -264,6 +326,47 @@ export default function Home() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SaveButton({
+  content,
+  savedIds,
+  onSave,
+}: {
+  content: string;
+  savedIds: Set<string>;
+  onSave: (content: string) => Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handle = async () => {
+    if (saving || saved) return;
+    setSaving(true);
+    await onSave(content);
+    setSaving(false);
+    setSaved(true);
+  };
+
+  // suppress unused warning — savedIds is used by parent to track per-id state
+  void savedIds;
+
+  return (
+    <div className="flex justify-end mt-2">
+      <button
+        onClick={handle}
+        disabled={saving || saved}
+        className={`flex items-center gap-1 text-[11px] rounded-full px-2.5 py-1 transition-colors ${
+          saved
+            ? "text-green-700 bg-green-50 border border-green-200"
+            : "text-gray-400 hover:text-green-600 hover:bg-green-50 border border-transparent"
+        }`}
+        title={saved ? "Saved!" : "Save recipe"}
+      >
+        {saved ? "✓ Saved" : saving ? "Saving…" : "🔖 Save"}
+      </button>
     </div>
   );
 }

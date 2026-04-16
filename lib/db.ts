@@ -53,6 +53,15 @@ export async function runMigrations() {
 
     // App tables
     await client.query(`
+      CREATE TABLE IF NOT EXISTS saved_recipes (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_saved_recipes_user ON saved_recipes(user_id, created_at DESC);
+
       CREATE TABLE IF NOT EXISTS conversations (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -114,6 +123,30 @@ export async function createConversation(id: string, userId: string, title: stri
 export async function deleteConversation(id: string, userId: string) {
   await getPool().query(
     `DELETE FROM conversations WHERE id = $1 AND user_id = $2`,
+    [id, userId]
+  );
+}
+
+// ── Saved Recipes ─────────────────────────────────────────────────────────────
+
+export async function getSavedRecipes(userId: string) {
+  const result = await getPool().query(
+    `SELECT id, title, content, created_at FROM saved_recipes WHERE user_id = $1 ORDER BY created_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+export async function saveRecipe(id: string, userId: string, title: string, content: string) {
+  await getPool().query(
+    `INSERT INTO saved_recipes (id, user_id, title, content) VALUES ($1, $2, $3, $4)`,
+    [id, userId, title, content]
+  );
+}
+
+export async function deleteRecipe(id: string, userId: string) {
+  await getPool().query(
+    `DELETE FROM saved_recipes WHERE id = $1 AND user_id = $2`,
     [id, userId]
   );
 }
