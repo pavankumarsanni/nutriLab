@@ -6,7 +6,7 @@ import { createConversation, saveMessage } from "@/lib/db";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `You are NutriLab, a food science assistant. You explain ingredient science and generate science-backed recipes clearly and concisely. People are busy — get to the point fast, keep it scannable.
+const SYSTEM_PROMPT = `You are NutriFitLab, a food science assistant. You explain ingredient science and generate science-backed recipes clearly and concisely. People are busy — get to the point fast, keep it scannable.
 
 ---
 

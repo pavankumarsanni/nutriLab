@@ -194,7 +194,7 @@ export default function Home() {
       <div className="h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
           <div className="text-5xl">🧪</div>
-          <p className="text-gray-500 text-sm">Loading NutriLab…</p>
+          <p className="text-gray-500 text-sm">Loading NutriFitLab…</p>
         </div>
       </div>
     );
@@ -207,7 +207,7 @@ export default function Home() {
         <div className="bg-white rounded-2xl shadow-lg p-10 flex flex-col items-center gap-6 max-w-sm w-full mx-4">
           <div className="text-6xl">🧪</div>
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900">NutriLab</h1>
+            <h1 className="text-2xl font-bold text-gray-900">NutriFitLab</h1>
             <p className="text-gray-500 mt-2 text-sm leading-relaxed">
               Discover the science behind your ingredients. Sign in to save your chat history and meal plans.
             </p>
@@ -263,7 +263,7 @@ export default function Home() {
           🧪
         </div>
         <div className="flex-1">
-          <h1 className="font-semibold text-gray-900 leading-tight">NutriLab</h1>
+          <h1 className="font-semibold text-gray-900 leading-tight">NutriFitLab</h1>
           <p className="text-xs text-gray-500">The science behind your ingredients</p>
         </div>
       </header>
