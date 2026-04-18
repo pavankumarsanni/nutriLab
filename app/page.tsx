@@ -30,13 +30,12 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"chat" | "recipes" | "meal-plans">("chat");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
-  const [showRecipes, setShowRecipes] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [showMealPlanModal, setShowMealPlanModal] = useState(false);
-  const [showSavedPlans, setShowSavedPlans] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -210,35 +209,24 @@ export default function Home() {
   // ── Main app ─────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      {showRecipes && (
-        <SavedRecipes
-          recipes={savedRecipes}
-          onDelete={handleDeleteRecipe}
-          onClose={() => setShowRecipes(false)}
-        />
-      )}
       {showMealPlanModal && (
         <MealPlanModal
           onClose={() => setShowMealPlanModal(false)}
           onSaved={(plan) => { handleMealPlanSaved(plan); }}
         />
       )}
-      {showSavedPlans && (
-        <SavedPlans
-          plans={mealPlans}
-          onDelete={handleDeleteMealPlan}
-          onClose={() => setShowSavedPlans(false)}
-        />
-      )}
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm z-10 flex-shrink-0">
-        <button
-          onClick={() => setSidebarOpen((o) => !o)}
-          className="text-gray-400 hover:text-gray-600 transition-colors mr-1"
-          title="Toggle sidebar"
-        >
-          ☰
-        </button>
+        {activeTab === "chat" && (
+          <button
+            onClick={() => setSidebarOpen((o) => !o)}
+            className="text-gray-400 hover:text-gray-600 transition-colors mr-1"
+            title="Toggle sidebar"
+          >
+            ☰
+          </button>
+        )}
         <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-lg flex-shrink-0">
           🧪
         </div>
@@ -248,6 +236,36 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Tab bar */}
+      <div className="bg-white border-b border-gray-200 flex-shrink-0">
+        <div className="flex px-4 gap-1">
+          {(["chat", "recipes", "meal-plans"] as const).map((tab) => {
+            const labels = { chat: "💬 Chat", recipes: "📋 Recipes", "meal-plans": "🗓️ Meal Plans" };
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab
+                    ? "border-green-600 text-green-700"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {labels[tab]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tab content */}
+      {activeTab === "recipes" && (
+        <SavedRecipes recipes={savedRecipes} onDelete={handleDeleteRecipe} />
+      )}
+      {activeTab === "meal-plans" && (
+        <SavedPlans plans={mealPlans} onDelete={handleDeleteMealPlan} onGenerate={() => setShowMealPlanModal(true)} />
+      )}
+      {activeTab === "chat" && (
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         {sidebarOpen && (
@@ -256,11 +274,6 @@ export default function Home() {
             activeId={activeConvId}
             onSelect={handleSelectConversation}
             onDelete={handleDeleteConversation}
-            onMealPlan={() => setShowMealPlanModal(true)}
-            onSavedRecipes={() => setShowRecipes(true)}
-            onSavedPlans={() => setShowSavedPlans(true)}
-            savedRecipesCount={savedRecipes.length}
-            savedPlansCount={mealPlans.length}
             user={session.user}
           />
         )}
@@ -365,6 +378,7 @@ export default function Home() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

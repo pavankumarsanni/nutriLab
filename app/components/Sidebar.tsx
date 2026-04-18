@@ -10,11 +10,6 @@ type Props = {
   activeId: string | null;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
-  onMealPlan: () => void;
-  onSavedRecipes: () => void;
-  onSavedPlans: () => void;
-  savedRecipesCount: number;
-  savedPlansCount: number;
   user: { name?: string | null; email?: string | null; image?: string | null };
 };
 
@@ -73,7 +68,7 @@ function ConversationItem({ c, activeId, onSelect, onDelete }: {
   );
 }
 
-export default function Sidebar({ conversations, activeId, onSelect, onDelete, onMealPlan, onSavedRecipes, onSavedPlans, savedRecipesCount, savedPlansCount, user }: Props) {
+export default function Sidebar({ conversations, activeId, onSelect, onDelete, user }: Props) {
   const [recentChatsOpen, setRecentChatsOpen] = useState(true);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
@@ -81,34 +76,6 @@ export default function Sidebar({ conversations, activeId, onSelect, onDelete, o
 
   return (
     <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
-      {/* Actions */}
-      <div className="p-3 border-b border-gray-100 space-y-1.5">
-        <button
-          onClick={onMealPlan}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-purple-700 hover:bg-purple-50 transition-colors"
-        >
-          <span className="text-base">🗓️</span> Generate Meal Plan
-        </button>
-        <button
-          onClick={onSavedRecipes}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <span className="flex items-center gap-2"><span className="text-base">📋</span> Saved Recipes</span>
-          {savedRecipesCount > 0 && (
-            <span className="bg-green-100 text-green-700 text-[10px] font-bold rounded-full px-1.5 py-0.5">{savedRecipesCount}</span>
-          )}
-        </button>
-        <button
-          onClick={onSavedPlans}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <span className="flex items-center gap-2"><span className="text-base">📅</span> Saved Plans</span>
-          {savedPlansCount > 0 && (
-            <span className="bg-purple-100 text-purple-700 text-[10px] font-bold rounded-full px-1.5 py-0.5">{savedPlansCount}</span>
-          )}
-        </button>
-      </div>
-
       {/* Recent Chats collapsible section */}
       <div className="flex-1 overflow-y-auto">
         <button
