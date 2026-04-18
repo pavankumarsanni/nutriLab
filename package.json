@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
-    "@auth/pg-adapter": "^1.11.2",
     "@neondatabase/serverless": "^1.0.2",
     "@tailwindcss/typography": "^0.5.19",
     "next": "14.2.35",

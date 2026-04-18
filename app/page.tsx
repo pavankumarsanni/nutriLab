@@ -5,9 +5,14 @@ import { useSession, signIn } from "next-auth/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Sidebar from "./components/Sidebar";
+import SavedRecipes from "./components/SavedRecipes";
+import MealPlanModal from "./components/MealPlanModal";
+import SavedPlans from "./components/SavedPlans";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; updated_at: string };
+type Recipe = { id: string; title: string; content: string; created_at: string };
+type MealPlan = { id: string; title: string; goal: string; diet: string; duration: number; content: string; created_at: string };
 
 const SUGGESTIONS = [
   { label: "🍛 Anti-inflammatory recipe", prompt: "Give me a recipe that fights inflammation" },
@@ -26,21 +31,77 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
+  const [showRecipes, setShowRecipes] = useState(false);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
+  const [showMealPlanModal, setShowMealPlanModal] = useState(false);
+  const [showSavedPlans, setShowSavedPlans] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // Load conversations when signed in
+  // Load conversations and saved recipes when signed in
   useEffect(() => {
-    if (session?.user) fetchConversations();
+    if (session?.user) {
+      fetchConversations();
+      fetchSavedRecipes();
+      fetchMealPlans();
+    }
   }, [session]);
 
   const fetchConversations = async () => {
     const res = await fetch("/api/conversations");
     const data = await res.json();
     if (data.conversations) setConversations(data.conversations);
+  };
+
+  const fetchSavedRecipes = async () => {
+    const res = await fetch("/api/recipes");
+    const data = await res.json();
+    if (data.recipes) {
+      setSavedRecipes(data.recipes);
+      setSavedIds(new Set(data.recipes.map((r: Recipe) => r.id)));
+    }
+  };
+
+  const handleSaveRecipe = async (content: string) => {
+    const firstLine = content.split("\n").find((l) => l.trim()) ?? "Saved Recipe";
+    const title = firstLine.replace(/^#+\s*/, "").replace(/\*+/g, "").trim().slice(0, 80);
+    const res = await fetch("/api/recipes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, content }),
+    });
+    const data = await res.json();
+    if (data.id) {
+      const newRecipe: Recipe = { id: data.id, title, content, created_at: new Date().toISOString() };
+      setSavedRecipes((prev) => [newRecipe, ...prev]);
+      setSavedIds((prev) => { const s = new Set(Array.from(prev)); s.add(data.id); return s; });
+    }
+  };
+
+  const fetchMealPlans = async () => {
+    const res = await fetch("/api/meal-plans");
+    const data = await res.json();
+    if (data.plans) setMealPlans(data.plans);
+  };
+
+  const handleMealPlanSaved = (plan: MealPlan) => {
+    setMealPlans((prev) => [plan, ...prev]);
+  };
+
+  const handleDeleteMealPlan = async (id: string) => {
+    await fetch(`/api/meal-plans/${id}`, { method: "DELETE" });
+    setMealPlans((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleDeleteRecipe = async (id: string) => {
+    await fetch(`/api/recipes/${id}`, { method: "DELETE" });
+    setSavedRecipes((prev) => prev.filter((r) => r.id !== id));
+    setSavedIds((prev) => { const s = new Set(prev); s.delete(id); return s; });
   };
 
   const handleSelectConversation = async (id: string) => {
@@ -149,6 +210,26 @@ export default function Home() {
   // ── Main app ─────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-gray-50">
+      {showRecipes && (
+        <SavedRecipes
+          recipes={savedRecipes}
+          onDelete={handleDeleteRecipe}
+          onClose={() => setShowRecipes(false)}
+        />
+      )}
+      {showMealPlanModal && (
+        <MealPlanModal
+          onClose={() => setShowMealPlanModal(false)}
+          onSaved={(plan) => { handleMealPlanSaved(plan); }}
+        />
+      )}
+      {showSavedPlans && (
+        <SavedPlans
+          plans={mealPlans}
+          onDelete={handleDeleteMealPlan}
+          onClose={() => setShowSavedPlans(false)}
+        />
+      )}
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm z-10 flex-shrink-0">
         <button
@@ -161,7 +242,7 @@ export default function Home() {
         <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-lg flex-shrink-0">
           🧪
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="font-semibold text-gray-900 leading-tight">NutriLab</h1>
           <p className="text-xs text-gray-500">The science behind your ingredients</p>
         </div>
@@ -174,11 +255,28 @@ export default function Home() {
             conversations={conversations}
             activeId={activeConvId}
             onSelect={handleSelectConversation}
-            onNew={handleNewChat}
             onDelete={handleDeleteConversation}
+            onMealPlan={() => setShowMealPlanModal(true)}
+            onSavedRecipes={() => setShowRecipes(true)}
+            onSavedPlans={() => setShowSavedPlans(true)}
+            savedRecipesCount={savedRecipes.length}
+            savedPlansCount={mealPlans.length}
             user={session.user}
           />
         )}
+
+        {/* Floating New Chat button */}
+        <button
+          onClick={() => { handleNewChat(); setSidebarOpen(false); }}
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+          title="New Chat"
+          aria-label="New Chat"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7">
+            <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 0 0-1.032-.211 50.89 50.89 0 0 0-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 0 0 2.433 3.984L7.28 21.53A.75.75 0 0 1 6 21v-4.03a48.527 48.527 0 0 1-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979Z" />
+            <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.810 2.664 2.94 .887.074 1.78.122 2.676.145v2.771a.75.75 0 0 0 1.28.53l2.94-2.94a49.28 49.28 0 0 0 2.298-.538c1.606-.49 2.642-1.93 2.642-3.41v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.732 49.732 0 0 0 15.75 7.5Z" />
+          </svg>
+        </button>
 
         {/* Chat area */}
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -219,9 +317,12 @@ export default function Home() {
                         : "bg-white text-gray-800 border border-gray-200 rounded-bl-sm"
                     }`}>
                       {m.role === "user" ? m.content : (
-                        <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-headings:font-semibold prose-table:text-xs prose-th:bg-green-50 prose-th:text-green-900 prose-th:font-semibold prose-td:border-gray-200 prose-tr:border-gray-200">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
-                        </div>
+                        <>
+                          <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-headings:font-semibold prose-table:text-xs prose-th:bg-green-50 prose-th:text-green-900 prose-th:font-semibold prose-td:border-gray-200 prose-tr:border-gray-200">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                          </div>
+                          <SaveButton content={m.content} savedIds={savedIds} onSave={handleSaveRecipe} />
+                        </>
                       )}
                     </div>
                   </div>
@@ -264,6 +365,56 @@ export default function Home() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SaveButton({
+  content,
+  savedIds,
+  onSave,
+}: {
+  content: string;
+  savedIds: Set<string>;
+  onSave: (content: string) => Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(false);
+
+  // suppress unused warning — savedIds is used by parent to track per-id state
+  void savedIds;
+
+  const handle = async () => {
+    if (saving || saved) return;
+    setSaving(true);
+    setError(false);
+    try {
+      await onSave(content);
+      setSaved(true);
+    } catch {
+      setError(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex justify-end mt-2">
+      <button
+        onClick={handle}
+        disabled={saving || saved}
+        className={`flex items-center gap-1 text-[11px] rounded-full px-2.5 py-1 transition-colors ${
+          saved
+            ? "text-green-700 bg-green-50 border border-green-200"
+            : error
+            ? "text-red-500 bg-red-50 border border-red-200 hover:bg-red-100"
+            : "text-gray-400 hover:text-green-600 hover:bg-green-50 border border-transparent"
+        }`}
+        title={saved ? "Saved!" : error ? "Failed — click to retry" : "Save recipe"}
+      >
+        {saved ? "✓ Saved" : saving ? "Saving…" : error ? "⚠ Retry" : "🔖 Save"}
+      </button>
     </div>
   );
 }
