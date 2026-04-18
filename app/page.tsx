@@ -34,7 +34,12 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "recipes" | "meal-plans" | "workouts">("chat");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Open sidebar by default on desktop, keep closed on mobile
+  useEffect(() => {
+    if (window.innerWidth >= 768) setSidebarOpen(true);
+  }, []);
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
