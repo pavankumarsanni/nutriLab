@@ -208,8 +208,9 @@ export default function Home() {
           <div className="text-6xl">🧪</div>
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900">NutriFitLab</h1>
+            <p className="text-lg font-medium text-green-700 mt-1">Eat smart. Train hard.</p>
             <p className="text-gray-500 mt-2 text-sm leading-relaxed">
-              Discover the science behind your ingredients. Sign in to save your chat history and meal plans.
+              Powered by the science of eating and moving well.
             </p>
           </div>
           <button
@@ -264,7 +265,7 @@ export default function Home() {
         </div>
         <div className="flex-1">
           <h1 className="font-semibold text-gray-900 leading-tight">NutriFitLab</h1>
-          <p className="text-xs text-gray-500">The science behind your ingredients</p>
+          <p className="text-xs text-gray-500">Eat smart. Train hard.</p>
         </div>
       </header>
 
