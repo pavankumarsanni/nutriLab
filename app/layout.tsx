@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "NutriFitLab",
-  description: "Your nutrition & fitness hub — powered by Claude AI",
+  description: "Eat smart. Train hard. Powered by the science of eating and moving well.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
