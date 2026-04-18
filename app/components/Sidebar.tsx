@@ -8,7 +8,6 @@ type Props = {
   conversations: Conversation[];
   activeId: string | null;
   onSelect: (id: string) => void;
-  onNew: () => void;
   onDelete: (id: string) => void;
   onMealPlan: () => void;
   onSavedRecipes: () => void;
@@ -29,17 +28,11 @@ function timeAgo(dateStr: string): string {
   return days === 1 ? "Yesterday" : `${days}d ago`;
 }
 
-export default function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onMealPlan, onSavedRecipes, onSavedPlans, savedRecipesCount, savedPlansCount, user }: Props) {
+export default function Sidebar({ conversations, activeId, onSelect, onDelete, onMealPlan, onSavedRecipes, onSavedPlans, savedRecipesCount, savedPlansCount, user }: Props) {
   return (
     <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
       {/* Actions */}
       <div className="p-3 border-b border-gray-100 space-y-1.5">
-        <button
-          onClick={onNew}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
-        >
-          <span className="text-base">✏️</span> New Chat
-        </button>
         <button
           onClick={onMealPlan}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-purple-700 hover:bg-purple-50 transition-colors"
