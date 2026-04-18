@@ -62,31 +62,48 @@ export async function POST(req: Request) {
   const levelLabel = LEVEL_LABELS[level] ?? level;
   const equipmentLabel = EQUIPMENT_LABELS[equipment] ?? equipment;
 
-  const prompt = `You are a certified personal trainer. Create a detailed ${duration}-minute workout plan with the following preferences:
+  const prompt = `You are a certified personal trainer. Create a ${duration}-minute workout plan for:
+- Goal: ${goalLabel}
+- Target area: ${targetLabel}
+- Fitness level: ${levelLabel}
+- Equipment: ${equipmentLabel}
 
-- **Goal:** ${goalLabel}
-- **Target area:** ${targetLabel}
-- **Fitness level:** ${levelLabel}
-- **Equipment:** ${equipmentLabel}
-- **Duration:** ${duration} minutes
+Return ONLY a valid JSON object with this exact structure (no markdown, no extra text):
+{
+  "intro": "2-3 sentence overview of the workout approach",
+  "warmup": [
+    { "name": "Exercise name", "duration": "e.g. 45 seconds", "instructions": ["step 1", "step 2", "step 3"] }
+  ],
+  "exercises": [
+    {
+      "name": "Exercise name",
+      "muscle_group": "e.g. Chest, Triceps",
+      "sets": "e.g. 3",
+      "reps": "e.g. 10-12 reps or 40 seconds",
+      "rest": "e.g. 60 seconds",
+      "instructions": ["step 1", "step 2", "step 3", "step 4"],
+      "common_mistakes": ["mistake 1", "mistake 2"],
+      "youtube_query": "short search query for this exercise e.g. how to do push ups proper form"
+    }
+  ],
+  "cooldown": [
+    { "name": "Stretch name", "duration": "e.g. 30 seconds each side", "instructions": ["step 1", "step 2"] }
+  ],
+  "pro_tips": ["tip 1", "tip 2", "tip 3"]
+}
 
-Format the workout clearly with:
-- A brief intro (2-3 sentences about the approach and what to expect)
-- **Warm-Up** (5 minutes): 3-4 dynamic warm-up exercises with duration
-- **Main Workout**: exercises listed with sets, reps (or time), and rest periods. Group into sections if needed (e.g. Strength, Cardio Bursts)
-- **Cool-Down** (5 minutes): 3-4 stretches with hold duration
-- **Pro Tips**: 2-3 bullet points with form cues or training advice specific to this workout
-
-For each exercise include: name, sets × reps or duration, rest time, and a one-line tip on proper form or why it's included.
-Use markdown formatting with headers, bold text, and emoji where appropriate.`;
+Include 3-4 warm-up exercises, 5-7 main exercises, and 3-4 cool-down stretches. Make it practical and achievable within ${duration} minutes.`;
 
   const message = await client.messages.create({
     model: "claude-sonnet-4-5",
-    max_tokens: 2500,
+    max_tokens: 3000,
     messages: [{ role: "user", content: prompt }],
   });
 
-  const content = message.content[0].type === "text" ? message.content[0].text : "";
+  const raw = message.content[0].type === "text" ? message.content[0].text : "";
+
+  // Strip any accidental markdown code fences
+  const content = raw.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
   const title = `${goalLabel} · ${targetLabel} · ${duration} min`;
 
   if (save) {

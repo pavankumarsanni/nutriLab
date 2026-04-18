@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import WorkoutContent from "./WorkoutContent";
 
 type Workout = { id?: string; title: string; content: string };
 
@@ -247,9 +246,7 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
         {/* Result step */}
         {step === "result" && workout && (
           <div className="flex-1 overflow-y-auto px-5 py-4">
-            <div className="prose prose-sm max-w-none prose-p:my-1.5 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm prose-table:text-xs prose-th:bg-green-50 prose-th:text-green-900 prose-th:font-semibold prose-td:border-gray-200 prose-tr:border-gray-200">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{workout.content}</ReactMarkdown>
-            </div>
+            <WorkoutContent content={workout.content} />
           </div>
         )}
 
