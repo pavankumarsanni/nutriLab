@@ -6,8 +6,8 @@ import Providers from "./components/Providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "NutriLab",
-  description: "Discover the science behind your ingredients — powered by Claude AI",
+  title: "NutriFitLab",
+  description: "Your nutrition & fitness hub — powered by Claude AI",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
