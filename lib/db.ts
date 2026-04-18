@@ -91,6 +91,20 @@ export async function runMigrations() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at ASC);
+
+      CREATE TABLE IF NOT EXISTS workouts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        goal TEXT NOT NULL,
+        target TEXT NOT NULL,
+        level TEXT NOT NULL,
+        equipment TEXT NOT NULL,
+        duration INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_workouts_user ON workouts(user_id, created_at DESC);
     `);
   } finally {
     client.release();
@@ -186,6 +200,33 @@ export async function saveRecipe(id: string, userId: string, title: string, cont
 export async function deleteRecipe(id: string, userId: string) {
   await getPool().query(
     `DELETE FROM saved_recipes WHERE id = $1 AND user_id = $2`,
+    [id, userId]
+  );
+}
+
+// ── Workouts ──────────────────────────────────────────────────────────────────
+
+export async function getWorkouts(userId: string) {
+  const result = await getPool().query(
+    `SELECT id, title, goal, target, level, equipment, duration, content, created_at FROM workouts WHERE user_id = $1 ORDER BY created_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+export async function saveWorkout(
+  id: string, userId: string, title: string,
+  goal: string, target: string, level: string, equipment: string, duration: number, content: string
+) {
+  await getPool().query(
+    `INSERT INTO workouts (id, user_id, title, goal, target, level, equipment, duration, content) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [id, userId, title, goal, target, level, equipment, duration, content]
+  );
+}
+
+export async function deleteWorkout(id: string, userId: string) {
+  await getPool().query(
+    `DELETE FROM workouts WHERE id = $1 AND user_id = $2`,
     [id, userId]
   );
 }

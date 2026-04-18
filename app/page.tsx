@@ -8,11 +8,14 @@ import Sidebar from "./components/Sidebar";
 import SavedRecipes from "./components/SavedRecipes";
 import MealPlanModal from "./components/MealPlanModal";
 import SavedPlans from "./components/SavedPlans";
+import WorkoutModal from "./components/WorkoutModal";
+import SavedWorkouts from "./components/SavedWorkouts";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; updated_at: string };
 type Recipe = { id: string; title: string; content: string; created_at: string };
 type MealPlan = { id: string; title: string; goal: string; diet: string; duration: number; content: string; created_at: string };
+type Workout = { id: string; title: string; goal: string; target: string; level: string; equipment: string; duration: number; content: string; created_at: string };
 
 const SUGGESTIONS = [
   { label: "🍛 Anti-inflammatory recipe", prompt: "Give me a recipe that fights inflammation" },
@@ -30,12 +33,14 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"chat" | "recipes" | "meal-plans">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "recipes" | "meal-plans" | "workouts">("chat");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [showMealPlanModal, setShowMealPlanModal] = useState(false);
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,6 +53,7 @@ export default function Home() {
       fetchConversations();
       fetchSavedRecipes();
       fetchMealPlans();
+      fetchWorkouts();
     }
   }, [session]);
 
@@ -90,6 +96,21 @@ export default function Home() {
 
   const handleMealPlanSaved = (plan: MealPlan) => {
     setMealPlans((prev) => [plan, ...prev]);
+  };
+
+  const fetchWorkouts = async () => {
+    const res = await fetch("/api/workouts");
+    const data = await res.json();
+    if (data.workouts) setWorkouts(data.workouts);
+  };
+
+  const handleWorkoutSaved = (workout: Workout) => {
+    setWorkouts((prev) => [workout, ...prev]);
+  };
+
+  const handleDeleteWorkout = async (id: string) => {
+    await fetch(`/api/workouts/${id}`, { method: "DELETE" });
+    setWorkouts((prev) => prev.filter((w) => w.id !== id));
   };
 
   const handleDeleteMealPlan = async (id: string) => {
@@ -215,6 +236,12 @@ export default function Home() {
           onSaved={(plan) => { handleMealPlanSaved(plan); }}
         />
       )}
+      {showWorkoutModal && (
+        <WorkoutModal
+          onClose={() => setShowWorkoutModal(false)}
+          onSaved={(workout) => { handleWorkoutSaved(workout); }}
+        />
+      )}
 
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm z-10 flex-shrink-0">
@@ -239,8 +266,8 @@ export default function Home() {
       {/* Tab bar */}
       <div className="bg-white border-b border-gray-200 flex-shrink-0">
         <div className="flex px-4 gap-1">
-          {(["chat", "recipes", "meal-plans"] as const).map((tab) => {
-            const labels = { chat: "💬 Chat", recipes: "📋 Recipes", "meal-plans": "🗓️ Meal Plans" };
+          {(["chat", "recipes", "meal-plans", "workouts"] as const).map((tab) => {
+            const labels = { chat: "💬 Chat", recipes: "📋 Recipes", "meal-plans": "🗓️ Meal Plans", workouts: "🏋️ Workouts" };
             return (
               <button
                 key={tab}
@@ -264,6 +291,9 @@ export default function Home() {
       )}
       {activeTab === "meal-plans" && (
         <SavedPlans plans={mealPlans} onDelete={handleDeleteMealPlan} onGenerate={() => setShowMealPlanModal(true)} />
+      )}
+      {activeTab === "workouts" && (
+        <SavedWorkouts workouts={workouts} onDelete={handleDeleteWorkout} onGenerate={() => setShowWorkoutModal(true)} />
       )}
       {activeTab === "chat" && (
       <div className="flex flex-1 overflow-hidden">
