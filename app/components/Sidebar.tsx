@@ -19,7 +19,6 @@ type Props = {
 };
 
 function groupConversations(conversations: Conversation[]): { label: string; items: Conversation[] }[] {
-  const now = Date.now();
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
   const last7Start = new Date(todayStart); last7Start.setDate(last7Start.getDate() - 7);
