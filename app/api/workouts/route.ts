@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getWorkouts, saveWorkout, runMigrations } from "@/lib/db";
+import { getWorkouts, saveWorkout, runMigrations, getUserProfile } from "@/lib/db";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -62,11 +62,23 @@ export async function POST(req: Request) {
   const levelLabel = LEVEL_LABELS[level] ?? level;
   const equipmentLabel = EQUIPMENT_LABELS[equipment] ?? equipment;
 
+  const profile = await getUserProfile(session.user.id).catch(() => null);
+
+  const profileContext = profile ? `
+User profile:
+- Age: ${profile.age ?? "not specified"}
+- Height: ${profile.height_cm ? `${profile.height_cm} cm` : "not specified"}
+- Current weight: ${profile.current_weight_kg ? `${profile.current_weight_kg} kg` : "not specified"}
+- Target weight: ${profile.target_weight_kg ? `${profile.target_weight_kg} kg` : "not specified"}
+- Activity level: ${profile.activity_level ?? "not specified"}${profile.injuries ? `\n- Injuries/limitations: ${profile.injuries} — avoid exercises that aggravate these areas` : ""}
+` : "";
+
   const prompt = `You are a certified personal trainer. Create a ${duration}-minute workout plan for:
 - Goal: ${goalLabel}
 - Target area: ${targetLabel}
 - Fitness level: ${levelLabel}
 - Equipment: ${equipmentLabel}
+${profileContext}
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no extra text):
 {

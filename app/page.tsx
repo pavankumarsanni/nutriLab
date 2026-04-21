@@ -10,12 +10,14 @@ import MealPlanModal from "./components/MealPlanModal";
 import SavedPlans from "./components/SavedPlans";
 import WorkoutModal from "./components/WorkoutModal";
 import SavedWorkouts from "./components/SavedWorkouts";
+import ProfileSetupModal from "./components/ProfileSetupModal";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; updated_at: string };
 type Recipe = { id: string; title: string; content: string; created_at: string };
 type MealPlan = { id: string; title: string; goal: string; diet: string; duration: number; content: string; created_at: string };
 type Workout = { id: string; title: string; goal: string; target: string; level: string; equipment: string; duration: number; content: string; created_at: string };
+type UserProfile = { height_cm: number | null; current_weight_kg: number | null; target_weight_kg: number | null; age: number | null; activity_level: string | null; injuries: string | null };
 
 const SUGGESTIONS = [
   { label: "🍛 Anti-inflammatory recipe", prompt: "Give me a recipe that fights inflammation" },
@@ -46,19 +48,22 @@ export default function Home() {
   const [showMealPlanModal, setShowMealPlanModal] = useState(false);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null | undefined>(undefined);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // Load conversations and saved recipes when signed in
+  // Load data when signed in
   useEffect(() => {
     if (session?.user) {
       fetchConversations();
       fetchSavedRecipes();
       fetchMealPlans();
       fetchWorkouts();
+      fetchUserProfile();
     }
   }, [session]);
 
@@ -116,6 +121,14 @@ export default function Home() {
   const handleDeleteWorkout = async (id: string) => {
     await fetch(`/api/workouts/${id}`, { method: "DELETE" });
     setWorkouts((prev) => prev.filter((w) => w.id !== id));
+  };
+
+  const fetchUserProfile = async () => {
+    const res = await fetch("/api/user-profile");
+    const data = await res.json();
+    setUserProfile(data.profile ?? null);
+    // Show setup modal automatically on first sign-in
+    if (!data.profile) setShowProfileModal(true);
   };
 
   const handleDeleteMealPlan = async (id: string) => {
@@ -248,6 +261,13 @@ export default function Home() {
           onSaved={(workout) => { handleWorkoutSaved(workout); }}
         />
       )}
+      {showProfileModal && (
+        <ProfileSetupModal
+          existing={userProfile ?? null}
+          onSaved={(profile) => { setUserProfile(profile); setShowProfileModal(false); }}
+          onClose={() => setShowProfileModal(false)}
+        />
+      )}
 
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm z-10 flex-shrink-0">
@@ -310,6 +330,7 @@ export default function Home() {
             activeId={activeConvId}
             onSelect={handleSelectConversation}
             onDelete={handleDeleteConversation}
+            onEditProfile={() => setShowProfileModal(true)}
             user={session.user}
           />
         )}

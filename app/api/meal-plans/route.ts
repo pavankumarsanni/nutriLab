@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getMealPlans, saveMealPlan, runMigrations } from "@/lib/db";
+import { getMealPlans, saveMealPlan, runMigrations, getUserProfile } from "@/lib/db";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -46,14 +46,28 @@ export async function POST(req: Request) {
   const goalLabel = GOAL_LABELS[goal] ?? goal;
   const dietLabel = DIET_LABELS[diet] ?? diet;
 
+  const profile = await getUserProfile(session.user.id).catch(() => null);
+
+  const profileContext = profile ? `
+User profile:
+- Age: ${profile.age ?? "not specified"}
+- Height: ${profile.height_cm ? `${profile.height_cm} cm` : "not specified"}
+- Current weight: ${profile.current_weight_kg ? `${profile.current_weight_kg} kg` : "not specified"}
+- Target weight: ${profile.target_weight_kg ? `${profile.target_weight_kg} kg` : "not specified"}
+- Activity level: ${profile.activity_level ?? "not specified"}${profile.injuries ? `\n- Injuries/limitations: ${profile.injuries}` : ""}
+` : "";
+
   const prompt = `You are a professional nutritionist. Create a detailed ${duration}-day meal plan for someone with the following goals:
 
 - **Goal:** ${goalLabel}
 - **Diet type:** ${dietLabel}
 - **Duration:** ${duration} days
+${profileContext}
+${profile?.current_weight_kg && profile?.height_cm ? `Tailor caloric intake and macros to the user's stats. Calculate appropriate daily calories based on their weight, height, age, and activity level.` : ""}
+${profile?.target_weight_kg && profile?.current_weight_kg ? `The user wants to go from ${profile.current_weight_kg}kg to ${profile.target_weight_kg}kg — reflect this in portion sizes and caloric targets.` : ""}
 
 Format the plan clearly with:
-- A brief intro (2-3 sentences about the approach)
+- A brief intro (2-3 sentences about the approach${profile ? ", referencing their specific stats" : ""})
 - For each day: Day 1, Day 2, etc. with:
   - 🌅 Breakfast
   - ☀️ Lunch
