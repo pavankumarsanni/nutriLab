@@ -15,11 +15,18 @@ const GOAL_LABELS: Record<string, string> = {
 };
 
 const TARGET_LABELS: Record<string, string> = {
-  full_body: "Full Body",
+  full_body:  "Full Body",
   upper_body: "Upper Body",
   lower_body: "Lower Body",
-  core: "Core & Abs",
-  cardio: "Cardio",
+  core:       "Core & Abs",
+  cardio:     "Cardio",
+  chest:      "Chest",
+  back:       "Back & Lats",
+  shoulders:  "Shoulders",
+  arms:       "Biceps & Triceps",
+  glutes:     "Glutes & Hamstrings",
+  quads:      "Quads",
+  calves:     "Calves",
 };
 
 const LEVEL_LABELS: Record<string, string> = {

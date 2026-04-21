@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import WorkoutContent from "./WorkoutContent";
 
 type Workout = { id?: string; title: string; content: string };
+type ChatMessage = { role: "user" | "assistant"; content: string };
 
 type Props = {
   onClose: () => void;
@@ -11,19 +12,26 @@ type Props = {
 };
 
 const GOALS = [
-  { value: "weight_loss",  label: "🔥 Weight Loss",          desc: "Burn calories & shed fat" },
-  { value: "muscle_gain",  label: "💪 Muscle Gain",           desc: "Build strength & size" },
-  { value: "endurance",    label: "🏃 Endurance & Cardio",    desc: "Boost stamina & heart health" },
-  { value: "flexibility",  label: "🧘 Flexibility & Mobility", desc: "Improve range of motion" },
-  { value: "general",      label: "⚡ General Fitness",        desc: "Stay active & feel great" },
+  { value: "weight_loss",  label: "🔥 Weight Loss",           desc: "Burn calories & shed fat" },
+  { value: "muscle_gain",  label: "💪 Muscle Gain",            desc: "Build strength & size" },
+  { value: "endurance",    label: "🏃 Endurance & Cardio",     desc: "Boost stamina & heart health" },
+  { value: "flexibility",  label: "🧘 Flexibility & Mobility",  desc: "Improve range of motion" },
+  { value: "general",      label: "⚡ General Fitness",         desc: "Stay active & feel great" },
 ];
 
 const TARGETS = [
-  { value: "full_body",   label: "🏋️ Full Body" },
-  { value: "upper_body",  label: "💪 Upper Body" },
-  { value: "lower_body",  label: "🦵 Lower Body" },
-  { value: "core",        label: "🎯 Core & Abs" },
-  { value: "cardio",      label: "🏃 Cardio" },
+  { value: "full_body",  label: "🏋️ Full Body",          group: "compound" },
+  { value: "upper_body", label: "💪 Upper Body",          group: "compound" },
+  { value: "lower_body", label: "🦵 Lower Body",          group: "compound" },
+  { value: "core",       label: "🎯 Core & Abs",          group: "compound" },
+  { value: "cardio",     label: "🏃 Cardio",              group: "compound" },
+  { value: "chest",      label: "🫁 Chest",               group: "muscle" },
+  { value: "back",       label: "🔙 Back & Lats",         group: "muscle" },
+  { value: "shoulders",  label: "🙆 Shoulders",           group: "muscle" },
+  { value: "arms",       label: "💪 Biceps & Triceps",    group: "muscle" },
+  { value: "glutes",     label: "🍑 Glutes & Hamstrings", group: "muscle" },
+  { value: "quads",      label: "🦵 Quads",               group: "muscle" },
+  { value: "calves",     label: "🦶 Calves",              group: "muscle" },
 ];
 
 const LEVELS = [
@@ -57,6 +65,12 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
   const generate = async () => {
     setStep("generating");
     setError("");
@@ -69,6 +83,7 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setWorkout({ title: data.title, content: data.content });
+      setChatMessages([]);
       setStep("result");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -102,6 +117,61 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
       setSaving(false);
     }
   };
+
+  const sendChat = async () => {
+    if (!chatInput.trim() || chatLoading || !workout) return;
+
+    const userMsg: ChatMessage = { role: "user", content: chatInput.trim() };
+    const updatedMessages = [...chatMessages, userMsg];
+    setChatMessages(updatedMessages);
+    setChatInput("");
+    setChatLoading(true);
+
+    // Add empty assistant message to stream into
+    setChatMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+    try {
+      const res = await fetch("/api/workouts/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: updatedMessages,
+          workoutTitle: workout.title,
+          workoutContent: workout.content,
+        }),
+      });
+
+      if (!res.body) throw new Error("No response body");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        setChatMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: updated[updated.length - 1].content + chunk,
+          };
+          return updated;
+        });
+        chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    } catch {
+      setChatMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: "assistant", content: "Sorry, something went wrong. Please try again." };
+        return updated;
+      });
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const compoundTargets = TARGETS.filter((t) => t.group === "compound");
+  const muscleTargets = TARGETS.filter((t) => t.group === "muscle");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -147,8 +217,27 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
             {/* Target */}
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-2">Target area</p>
+
+              <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1.5">General</p>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                {compoundTargets.map((t) => (
+                  <button
+                    key={t.value}
+                    onClick={() => setTarget(t.value)}
+                    className={`text-left rounded-xl px-4 py-2.5 border transition-all text-sm ${
+                      target === t.value
+                        ? "border-green-500 bg-green-50 text-green-800 font-medium"
+                        : "border-gray-200 hover:border-gray-300 text-gray-700"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1.5">Specific muscle groups</p>
               <div className="grid grid-cols-2 gap-2">
-                {TARGETS.map((t) => (
+                {muscleTargets.map((t) => (
                   <button
                     key={t.value}
                     onClick={() => setTarget(t.value)}
@@ -245,8 +334,85 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
 
         {/* Result step */}
         {step === "result" && workout && (
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
             <WorkoutContent content={workout.content} />
+
+            {/* Contextual Chat */}
+            <div className="border-t border-gray-100 pt-5">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">🤖</span>
+                <p className="text-sm font-semibold text-gray-800">Ask your personal trainer</p>
+              </div>
+              <p className="text-xs text-gray-400 mb-4">
+                Ask to modify exercises, swap equipment, make it harder/easier, or anything about this workout.
+              </p>
+
+              {/* Chat messages */}
+              {chatMessages.length > 0 && (
+                <div className="space-y-3 mb-4">
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                          msg.role === "user"
+                            ? "bg-green-600 text-white rounded-br-sm"
+                            : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                        }`}
+                      >
+                        {msg.content || (
+                          <span className="flex gap-1">
+                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={chatBottomRef} />
+                </div>
+              )}
+
+              {/* Suggestion chips */}
+              {chatMessages.length === 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {[
+                    "Make this harder 🔥",
+                    "I don't have dumbbells",
+                    "Replace the first exercise",
+                    "Add more chest work",
+                  ].map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => setChatInput(suggestion)}
+                      className="text-xs bg-gray-50 border border-gray-200 text-gray-600 rounded-full px-3 py-1.5 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendChat()}
+                  placeholder="Ask anything about this workout…"
+                  disabled={chatLoading}
+                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 disabled:opacity-60"
+                />
+                <button
+                  onClick={sendChat}
+                  disabled={chatLoading || !chatInput.trim()}
+                  className="bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -266,7 +432,7 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
           {step === "result" && (
             <>
               <button
-                onClick={() => { setStep("form"); setWorkout(null); setSaved(false); }}
+                onClick={() => { setStep("form"); setWorkout(null); setSaved(false); setChatMessages([]); }}
                 className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-xl px-4 py-2"
               >
                 ← New Workout
