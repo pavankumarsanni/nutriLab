@@ -114,8 +114,17 @@ Include 3-4 warm-up exercises, 5-7 main exercises, and 3-4 cool-down stretches. 
 
   const raw = message.content[0].type === "text" ? message.content[0].text : "";
 
-  // Strip any accidental markdown code fences
-  const content = raw.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
+  // Strip markdown code fences if Claude wrapped the JSON
+  let content = raw.trim();
+  const fenceMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fenceMatch) {
+    content = fenceMatch[1].trim();
+  }
+  // If still not valid JSON, try extracting the first { ... } block
+  if (!content.startsWith("{")) {
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) content = jsonMatch[0].trim();
+  }
   const title = `${goalLabel} · ${targetLabel} · ${duration} min`;
 
   if (save) {
