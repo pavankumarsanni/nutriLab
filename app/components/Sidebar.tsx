@@ -10,6 +10,7 @@ type Props = {
   activeId: string | null;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+  onEditProfile: () => void;
   user: { name?: string | null; email?: string | null; image?: string | null };
 };
 
@@ -68,7 +69,7 @@ function ConversationItem({ c, activeId, onSelect, onDelete }: {
   );
 }
 
-export default function Sidebar({ conversations, activeId, onSelect, onDelete, user }: Props) {
+export default function Sidebar({ conversations, activeId, onSelect, onDelete, onEditProfile, user }: Props) {
   const [recentChatsOpen, setRecentChatsOpen] = useState(true);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
@@ -132,6 +133,12 @@ export default function Sidebar({ conversations, activeId, onSelect, onDelete, u
           )}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-gray-800 truncate">{user.name}</p>
+            <button
+              onClick={onEditProfile}
+              className="text-[10px] text-green-600 hover:text-green-700 transition-colors"
+            >
+              Edit profile
+            </button>
           </div>
           {confirmSignOut ? (
             <div className="flex items-center gap-1.5 flex-shrink-0">

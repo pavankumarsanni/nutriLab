@@ -10,20 +10,22 @@ import MealPlanModal from "./components/MealPlanModal";
 import SavedPlans from "./components/SavedPlans";
 import WorkoutModal from "./components/WorkoutModal";
 import SavedWorkouts from "./components/SavedWorkouts";
+import ProfileSetupModal from "./components/ProfileSetupModal";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; updated_at: string };
 type Recipe = { id: string; title: string; content: string; created_at: string };
 type MealPlan = { id: string; title: string; goal: string; diet: string; duration: number; content: string; created_at: string };
 type Workout = { id: string; title: string; goal: string; target: string; level: string; equipment: string; duration: number; content: string; created_at: string };
+type UserProfile = { height_cm: number | null; current_weight_kg: number | null; target_weight_kg: number | null; age: number | null; activity_level: string | null; injuries: string | null };
 
 const SUGGESTIONS = [
-  { label: "🍛 Anti-inflammatory recipe", prompt: "Give me a recipe that fights inflammation" },
-  { label: "🫀 Heart-healthy dinner", prompt: "Give me a heart-healthy dinner recipe with science explanations" },
-  { label: "⚡ Energy-boosting breakfast", prompt: "Give me an energy-boosting breakfast recipe" },
-  { label: "🧪 What does turmeric do?", prompt: "What does turmeric do and how do I activate it?" },
-  { label: "🧄 Garlic & cooking", prompt: "What happens to garlic when you cook it?" },
-  { label: "🥦 How to get the most from broccoli?", prompt: "How do I get the most out of broccoli?" },
+  { label: "🔥 Foods that boost metabolism", prompt: "What foods naturally boost metabolism and how do they work?" },
+  { label: "💪 Best protein sources for muscle gain", prompt: "What are the best protein sources for muscle gain and recovery?" },
+  { label: "🫀 Heart-healthy dinner ideas", prompt: "Give me a heart-healthy dinner recipe with science explanations" },
+  { label: "⚡ Pre-workout nutrition tips", prompt: "What should I eat before a workout to maximise performance?" },
+  { label: "🧘 Anti-inflammatory foods", prompt: "Give me a list of anti-inflammatory foods and how to use them" },
+  { label: "😴 Foods that improve sleep & recovery", prompt: "What foods help with sleep and workout recovery?" },
 ];
 
 export default function Home() {
@@ -46,19 +48,22 @@ export default function Home() {
   const [showMealPlanModal, setShowMealPlanModal] = useState(false);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null | undefined>(undefined);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // Load conversations and saved recipes when signed in
+  // Load data when signed in
   useEffect(() => {
     if (session?.user) {
       fetchConversations();
       fetchSavedRecipes();
       fetchMealPlans();
       fetchWorkouts();
+      fetchUserProfile();
     }
   }, [session]);
 
@@ -116,6 +121,14 @@ export default function Home() {
   const handleDeleteWorkout = async (id: string) => {
     await fetch(`/api/workouts/${id}`, { method: "DELETE" });
     setWorkouts((prev) => prev.filter((w) => w.id !== id));
+  };
+
+  const fetchUserProfile = async () => {
+    const res = await fetch("/api/user-profile");
+    const data = await res.json();
+    setUserProfile(data.profile ?? null);
+    // Show setup modal automatically on first sign-in
+    if (!data.profile) setShowProfileModal(true);
   };
 
   const handleDeleteMealPlan = async (id: string) => {
@@ -210,7 +223,7 @@ export default function Home() {
             <h1 className="text-2xl font-bold text-gray-900">NutriFitLab</h1>
             <p className="text-lg font-medium text-green-700 mt-1">Eat smart. Train hard.</p>
             <p className="text-gray-500 mt-2 text-sm leading-relaxed">
-              Powered by the science of eating and moving well.
+              Your AI-powered nutrition & fitness companion. Sign in to save your chats, meal plans, and workouts.
             </p>
           </div>
           <button
@@ -246,6 +259,13 @@ export default function Home() {
         <WorkoutModal
           onClose={() => setShowWorkoutModal(false)}
           onSaved={(workout) => { handleWorkoutSaved(workout); }}
+        />
+      )}
+      {showProfileModal && (
+        <ProfileSetupModal
+          existing={userProfile ?? null}
+          onSaved={(profile) => { setUserProfile(profile); setShowProfileModal(false); }}
+          onClose={() => setShowProfileModal(false)}
         />
       )}
 
@@ -310,6 +330,7 @@ export default function Home() {
             activeId={activeConvId}
             onSelect={handleSelectConversation}
             onDelete={handleDeleteConversation}
+            onEditProfile={() => setShowProfileModal(true)}
             user={session.user}
           />
         )}
@@ -331,12 +352,12 @@ export default function Home() {
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
             {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full gap-6 text-center pb-10">
-                <div className="text-7xl">🧪</div>
+              <div className="flex flex-col items-center justify-center h-full gap-6 text-center pb-10 px-2">
+                <div className="flex items-center gap-2 text-5xl">🥗🏋️</div>
                 <div>
-                  <h2 className="text-2xl font-semibold text-gray-800">What&apos;s in your food?</h2>
-                  <p className="text-gray-500 mt-2 max-w-sm">
-                    Ask about any ingredient — discover its active compounds, health benefits, and the combinations that unlock its full potential.
+                  <h2 className="text-2xl font-semibold text-gray-800">Eat smart. Train hard.</h2>
+                  <p className="text-gray-500 mt-2 max-w-sm text-sm">
+                    Ask me anything about nutrition, ingredients, fitness, or recovery — I&apos;ll give you science-backed answers tailored to your goals.
                   </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg mt-2">
@@ -399,7 +420,7 @@ export default function Home() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about any ingredient or combination…"
+                placeholder="Ask about nutrition, ingredients, fitness, recovery…"
                 disabled={loading}
                 className="flex-1 border border-gray-300 rounded-full px-5 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-50"
               />
