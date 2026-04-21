@@ -30,9 +30,20 @@ type WorkoutPlan = {
 };
 
 function parseContent(content: string): WorkoutPlan | null {
+  // Direct parse
   try {
     return JSON.parse(content) as WorkoutPlan;
   } catch {
+    // Try stripping code fences
+    const fenceMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (fenceMatch) {
+      try { return JSON.parse(fenceMatch[1].trim()) as WorkoutPlan; } catch { /* continue */ }
+    }
+    // Try extracting first { } block
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try { return JSON.parse(jsonMatch[0]) as WorkoutPlan; } catch { /* continue */ }
+    }
     return null;
   }
 }
