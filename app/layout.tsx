@@ -6,8 +6,22 @@ import Providers from "./components/Providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "NutriFitLab",
-  description: "Eat smart. Train hard. Powered by the science of eating and moving well.",
+  metadataBase: new URL("https://nutrifitlab.vercel.app"),
+  title: "NutriFitLab — Eat smart. Train hard.",
+  description: "AI-powered meal plans and workout plans personalised to your goals. Chat with a nutrition and fitness AI, save recipes, and track your progress.",
+  openGraph: {
+    title: "NutriFitLab — Eat smart. Train hard.",
+    description: "AI-powered meal plans and workout plans personalised to your goals. Chat with a nutrition and fitness AI, save recipes, and track your progress.",
+    url: "https://nutrifitlab.vercel.app",
+    siteName: "NutriFitLab",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "NutriFitLab — Eat smart. Train hard.",
+    description: "AI-powered meal plans and workout plans personalised to your goals.",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
