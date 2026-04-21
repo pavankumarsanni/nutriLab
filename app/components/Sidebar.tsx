@@ -72,6 +72,8 @@ function ConversationItem({ c, activeId, onSelect, onDelete }: {
 export default function Sidebar({ conversations, activeId, onSelect, onDelete, onEditProfile, user }: Props) {
   const [recentChatsOpen, setRecentChatsOpen] = useState(true);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const groups = groupConversations(conversations);
 
@@ -121,7 +123,8 @@ export default function Sidebar({ conversations, activeId, onSelect, onDelete, o
       </div>
 
       {/* User profile + sign out */}
-      <div className="p-3 border-t border-gray-100">
+      <div className="p-3 border-t border-gray-100 space-y-2">
+        {/* Avatar row */}
         <div className="flex items-center gap-2">
           {user.image ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -159,7 +162,7 @@ export default function Sidebar({ conversations, activeId, onSelect, onDelete, o
             </div>
           ) : (
             <button
-              onClick={() => setConfirmSignOut(true)}
+              onClick={() => { setConfirmSignOut(true); setConfirmDelete(false); }}
               className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
               title="Sign out"
             >
@@ -169,6 +172,50 @@ export default function Sidebar({ conversations, activeId, onSelect, onDelete, o
               </svg>
             </button>
           )}
+        </div>
+
+        {/* Delete account row */}
+        {confirmDelete ? (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 space-y-1.5">
+            <p className="text-[11px] text-red-700 font-medium">Delete all your data permanently?</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    await fetch("/api/account", { method: "DELETE" });
+                    signOut({ callbackUrl: "/" });
+                  } catch {
+                    setDeleting(false);
+                    setConfirmDelete(false);
+                  }
+                }}
+                disabled={deleting}
+                className="text-[11px] font-medium text-white bg-red-500 hover:bg-red-600 rounded px-2.5 py-1 transition-colors disabled:opacity-60"
+              >
+                {deleting ? "Deleting…" : "Yes, delete"}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => { setConfirmDelete(true); setConfirmSignOut(false); }}
+            className="text-[10px] text-gray-400 hover:text-red-500 transition-colors w-full text-left"
+          >
+            Delete my account
+          </button>
+        )}
+
+        {/* Links */}
+        <div className="flex gap-3 pt-1">
+          <a href="/privacy" target="_blank" className="text-[10px] text-gray-300 hover:text-gray-500 transition-colors">Privacy</a>
+          <a href="/terms" target="_blank" className="text-[10px] text-gray-300 hover:text-gray-500 transition-colors">Terms</a>
         </div>
       </div>
     </aside>
