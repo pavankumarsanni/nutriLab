@@ -215,6 +215,14 @@ export async function deleteRecipe(id: string, userId: string) {
   );
 }
 
+// ── Account ───────────────────────────────────────────────────────────────────
+
+export async function deleteUserAccount(userId: string) {
+  // All child tables (user_profiles, conversations, messages, saved_recipes,
+  // meal_plans, workouts, accounts, sessions) cascade from users(id)
+  await getPool().query(`DELETE FROM users WHERE id = $1`, [userId]);
+}
+
 // ── User Profile ─────────────────────────────────────────────────────────────
 
 export type UserProfile = {
