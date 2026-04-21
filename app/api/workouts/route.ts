@@ -25,6 +25,7 @@ const TARGET_LABELS: Record<string, string> = {
   shoulders:  "Shoulders",
   arms:       "Biceps & Triceps",
   glutes:     "Glutes & Hamstrings",
+  quads:      "Quads",
   calves:     "Calves",
 };
 

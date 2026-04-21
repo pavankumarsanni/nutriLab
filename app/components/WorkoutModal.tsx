@@ -30,7 +30,8 @@ const TARGETS = [
   { value: "shoulders",  label: "🙆 Shoulders",           group: "muscle" },
   { value: "arms",       label: "💪 Biceps & Triceps",    group: "muscle" },
   { value: "glutes",     label: "🍑 Glutes & Hamstrings", group: "muscle" },
-  { value: "calves",     label: "🦵 Calves",              group: "muscle" },
+  { value: "quads",      label: "🦵 Quads",               group: "muscle" },
+  { value: "calves",     label: "🦶 Calves",              group: "muscle" },
 ];
 
 const LEVELS = [
