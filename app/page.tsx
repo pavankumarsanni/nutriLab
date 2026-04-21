@@ -388,7 +388,7 @@ export default function Home() {
                     }`}>
                       {m.role === "user" ? m.content : (
                         <>
-                          <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-headings:font-semibold prose-table:text-xs prose-th:bg-green-50 prose-th:text-green-900 prose-th:font-semibold prose-td:border-gray-200 prose-tr:border-gray-200">
+                          <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-headings:font-semibold prose-table:text-xs prose-th:bg-green-50 prose-th:text-green-900 prose-th:font-semibold prose-td:border-gray-200 prose-tr:border-gray-200 [&_table]:block [&_table]:overflow-x-auto [&_table]:w-full [&_table]:text-xs [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                           </div>
                           <SaveButton content={m.content} savedIds={savedIds} onSave={handleSaveRecipe} />
