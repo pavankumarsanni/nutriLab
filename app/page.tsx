@@ -43,7 +43,6 @@ export default function Home() {
     if (window.innerWidth >= 768) setSidebarOpen(true);
   }, []);
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [showMealPlanModal, setShowMealPlanModal] = useState(false);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
@@ -76,26 +75,7 @@ export default function Home() {
   const fetchSavedRecipes = async () => {
     const res = await fetch("/api/recipes");
     const data = await res.json();
-    if (data.recipes) {
-      setSavedRecipes(data.recipes);
-      setSavedIds(new Set(data.recipes.map((r: Recipe) => r.id)));
-    }
-  };
-
-  const handleSaveRecipe = async (content: string) => {
-    const firstLine = content.split("\n").find((l) => l.trim()) ?? "Saved Recipe";
-    const title = firstLine.replace(/^#+\s*/, "").replace(/\*+/g, "").trim().slice(0, 80);
-    const res = await fetch("/api/recipes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, content }),
-    });
-    const data = await res.json();
-    if (data.id) {
-      const newRecipe: Recipe = { id: data.id, title, content, created_at: new Date().toISOString() };
-      setSavedRecipes((prev) => [newRecipe, ...prev]);
-      setSavedIds((prev) => { const s = new Set(Array.from(prev)); s.add(data.id); return s; });
-    }
+    if (data.recipes) setSavedRecipes(data.recipes);
   };
 
   const fetchMealPlans = async () => {
@@ -139,7 +119,6 @@ export default function Home() {
   const handleDeleteRecipe = async (id: string) => {
     await fetch(`/api/recipes/${id}`, { method: "DELETE" });
     setSavedRecipes((prev) => prev.filter((r) => r.id !== id));
-    setSavedIds((prev) => { const s = new Set(prev); s.delete(id); return s; });
   };
 
   const handleSelectConversation = async (id: string) => {
@@ -400,7 +379,6 @@ export default function Home() {
                               }}
                             >{m.content}</ReactMarkdown>
                           </div>
-                          <SaveButton content={m.content} savedIds={savedIds} onSave={handleSaveRecipe} />
                         </>
                       )}
                     </div>
@@ -449,52 +427,3 @@ export default function Home() {
   );
 }
 
-function SaveButton({
-  content,
-  savedIds,
-  onSave,
-}: {
-  content: string;
-  savedIds: Set<string>;
-  onSave: (content: string) => Promise<void>;
-}) {
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState(false);
-
-  // suppress unused warning — savedIds is used by parent to track per-id state
-  void savedIds;
-
-  const handle = async () => {
-    if (saving || saved) return;
-    setSaving(true);
-    setError(false);
-    try {
-      await onSave(content);
-      setSaved(true);
-    } catch {
-      setError(true);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="flex justify-end mt-2">
-      <button
-        onClick={handle}
-        disabled={saving || saved}
-        className={`flex items-center gap-1 text-[11px] rounded-full px-2.5 py-1 transition-colors ${
-          saved
-            ? "text-green-700 bg-green-50 border border-green-200"
-            : error
-            ? "text-red-500 bg-red-50 border border-red-200 hover:bg-red-100"
-            : "text-gray-400 hover:text-green-600 hover:bg-green-50 border border-transparent"
-        }`}
-        title={saved ? "Saved!" : error ? "Failed — click to retry" : "Save recipe"}
-      >
-        {saved ? "✓ Saved" : saving ? "Saving…" : error ? "⚠ Retry" : "🔖 Save"}
-      </button>
-    </div>
-  );
-}
