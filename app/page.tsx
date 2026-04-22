@@ -78,6 +78,21 @@ export default function Home() {
     if (data.recipes) setSavedRecipes(data.recipes);
   };
 
+  const handleSaveRecipe = async (content: string) => {
+    const firstLine = content.split("\n").find((l) => l.trim()) ?? "Saved Recipe";
+    const title = firstLine.replace(/^#+\s*/, "").replace(/\*+/g, "").trim().slice(0, 80);
+    const res = await fetch("/api/recipes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, content }),
+    });
+    const data = await res.json();
+    if (data.id) {
+      const newRecipe: Recipe = { id: data.id, title, content, created_at: new Date().toISOString() };
+      setSavedRecipes((prev) => [newRecipe, ...prev]);
+    }
+  };
+
   const fetchMealPlans = async () => {
     const res = await fetch("/api/meal-plans");
     const data = await res.json();
@@ -379,6 +394,9 @@ export default function Home() {
                               }}
                             >{m.content}</ReactMarkdown>
                           </div>
+                          {isRecipeResponse(m.content) && (
+                            <SaveButton content={m.content} onSave={handleSaveRecipe} />
+                          )}
                         </>
                       )}
                     </div>
@@ -423,6 +441,63 @@ export default function Home() {
         </div>
       </div>
       )}
+    </div>
+  );
+}
+
+// Detects if a chat response contains a recipe (has ingredients/instructions)
+function isRecipeResponse(content: string): boolean {
+  const lower = content.toLowerCase();
+  return (
+    (lower.includes("ingredient") || lower.includes("instructions") || lower.includes("recipe")) &&
+    !lower.includes("workout") &&
+    !lower.includes("exercise") &&
+    !lower.includes("sets") &&
+    !lower.includes("reps")
+  );
+}
+
+function SaveButton({
+  content,
+  onSave,
+}: {
+  content: string;
+  onSave: (content: string) => Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(false);
+
+  const handle = async () => {
+    if (saving || saved) return;
+    setSaving(true);
+    setError(false);
+    try {
+      await onSave(content);
+      setSaved(true);
+    } catch {
+      setError(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex justify-end mt-2">
+      <button
+        onClick={handle}
+        disabled={saving || saved}
+        className={`flex items-center gap-1 text-[11px] rounded-full px-2.5 py-1 transition-colors ${
+          saved
+            ? "text-green-700 bg-green-50 border border-green-200"
+            : error
+            ? "text-red-500 bg-red-50 border border-red-200 hover:bg-red-100"
+            : "text-gray-400 hover:text-green-600 hover:bg-green-50 border border-transparent"
+        }`}
+        title={saved ? "Saved to Recipes!" : error ? "Failed — click to retry" : "Save to Recipes"}
+      >
+        {saved ? "✓ Saved to Recipes" : saving ? "Saving…" : error ? "⚠ Retry" : "🔖 Save Recipe"}
+      </button>
     </div>
   );
 }
