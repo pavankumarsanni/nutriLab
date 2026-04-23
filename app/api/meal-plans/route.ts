@@ -40,11 +40,8 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { goal, diet, duration, save } = await req.json();
-  if (!goal || !diet || !duration) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-
-  const goalLabel = GOAL_LABELS[goal] ?? goal;
-  const dietLabel = DIET_LABELS[diet] ?? diet;
+  const { goal, diet, duration, save, customRequest } = await req.json();
+  if (!customRequest && (!goal || !diet || !duration)) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
   const profile = await getUserProfile(session.user.id).catch(() => null);
 
@@ -56,6 +53,46 @@ User profile:
 - Target weight: ${profile.target_weight_kg ? `${profile.target_weight_kg} kg` : "not specified"}
 - Activity level: ${profile.activity_level ?? "not specified"}${profile.injuries ? `\n- Injuries/limitations: ${profile.injuries}` : ""}
 ` : "";
+
+  // Custom request mode
+  if (customRequest) {
+    const customPrompt = `You are a professional nutritionist. Create a meal plan based on this request: "${customRequest}"
+${profileContext}
+Format the plan clearly with:
+- A brief intro (2-3 sentences about the approach)
+- For each day: Day 1, Day 2, etc. with:
+  - 🌅 Breakfast
+  - ☀️ Lunch
+  - 🌙 Dinner
+  - 🍎 Snacks (1-2 options)
+  - 💧 Hydration tip (1 line)
+- End with a short "Key Nutrition Tips" section (3-4 bullet points)
+Keep meals practical and science-backed. Use markdown formatting.`;
+
+    const customMessage = await client.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 2500,
+      messages: [{ role: "user", content: customPrompt }],
+    });
+
+    const customContent = customMessage.content[0].type === "text" ? customMessage.content[0].text : "";
+    const customTitle = customRequest.slice(0, 60) + (customRequest.length > 60 ? "…" : "");
+
+    if (save) {
+      const id = crypto.randomUUID();
+      try {
+        await saveMealPlan(id, session.user.id, customTitle, "custom", "custom", 0, customContent);
+      } catch {
+        await runMigrations();
+        await saveMealPlan(id, session.user.id, customTitle, "custom", "custom", 0, customContent);
+      }
+      return NextResponse.json({ content: customContent, title: customTitle, id });
+    }
+    return NextResponse.json({ content: customContent, title: customTitle });
+  }
+
+  const goalLabel = GOAL_LABELS[goal] ?? goal;
+  const dietLabel = DIET_LABELS[diet] ?? diet;
 
   const prompt = `You are a professional nutritionist. Create a detailed ${duration}-day meal plan for someone with the following goals:
 

@@ -74,7 +74,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-base font-semibold text-gray-900 mb-2">9. Contact</h2>
-            <p>If you have any questions about these Terms, please contact us at <strong>nutrifitlab@gmail.com</strong>.</p>
+            <p>If you have any questions about these Terms, please contact us at <strong>labsnutrifit@gmail.com</strong>.</p>
           </section>
 
         </div>

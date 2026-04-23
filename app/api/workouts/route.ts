@@ -59,8 +59,10 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { goal, target, level, equipment, duration, save } = await req.json();
-  if (!goal || !target || !level || !equipment || !duration) {
+  const { goal, target, level, equipment, duration, save, customRequest } = await req.json();
+
+  // Custom request mode — skip preset validation
+  if (!customRequest && (!goal || !target || !level || !equipment || !duration)) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
@@ -79,6 +81,61 @@ User profile:
 - Target weight: ${profile.target_weight_kg ? `${profile.target_weight_kg} kg` : "not specified"}
 - Activity level: ${profile.activity_level ?? "not specified"}${profile.injuries ? `\n- Injuries/limitations: ${profile.injuries} — avoid exercises that aggravate these areas` : ""}
 ` : "";
+
+  // Custom request prompt
+  if (customRequest) {
+    const customPrompt = `You are a certified personal trainer. Create a workout plan based on this request: "${customRequest}"
+${profileContext}
+Return ONLY a valid JSON object with this exact structure (no markdown, no extra text):
+{
+  "intro": "2-3 sentence overview of the workout approach",
+  "warmup": [
+    { "name": "Exercise name", "duration": "e.g. 45 seconds", "instructions": ["step 1", "step 2", "step 3"] }
+  ],
+  "exercises": [
+    {
+      "name": "Exercise name",
+      "muscle_group": "e.g. Chest, Triceps",
+      "sets": "e.g. 3",
+      "reps": "e.g. 10-12 reps or 40 seconds",
+      "rest": "e.g. 60 seconds",
+      "instructions": ["step 1", "step 2", "step 3", "step 4"],
+      "common_mistakes": ["mistake 1", "mistake 2"],
+      "youtube_query": "short search query for this exercise"
+    }
+  ],
+  "cooldown": [
+    { "name": "Stretch name", "duration": "e.g. 30 seconds each side", "instructions": ["step 1", "step 2"] }
+  ],
+  "pro_tips": ["tip 1", "tip 2", "tip 3"]
+}`;
+
+    const customMessage = await client.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 3000,
+      messages: [{ role: "user", content: customPrompt }],
+    });
+
+    let customContent = customMessage.content[0].type === "text" ? customMessage.content[0].text.trim() : "";
+    const fenceMatch = customContent.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (fenceMatch) customContent = fenceMatch[1].trim();
+    if (!customContent.startsWith("{")) {
+      const jsonMatch = customContent.match(/\{[\s\S]*\}/);
+      if (jsonMatch) customContent = jsonMatch[0].trim();
+    }
+    const customTitle = customRequest.slice(0, 60) + (customRequest.length > 60 ? "…" : "");
+    if (save) {
+      const id = crypto.randomUUID();
+      try {
+        await saveWorkout(id, session.user.id, customTitle, "custom", "custom", "custom", "custom", 0, customContent);
+      } catch {
+        await runMigrations();
+        await saveWorkout(id, session.user.id, customTitle, "custom", "custom", "custom", "custom", 0, customContent);
+      }
+      return NextResponse.json({ content: customContent, title: customTitle, id });
+    }
+    return NextResponse.json({ content: customContent, title: customTitle });
+  }
 
   const prompt = `You are a certified personal trainer. Create a ${duration}-minute workout plan for:
 - Goal: ${goalLabel}

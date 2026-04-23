@@ -55,6 +55,8 @@ const DURATIONS = [
 
 export default function WorkoutModal({ onClose, onSaved }: Props) {
   const [step, setStep] = useState<"form" | "generating" | "result">("form");
+  const [mode, setMode] = useState<"presets" | "custom">("presets");
+  const [customRequest, setCustomRequest] = useState("");
   const [goal, setGoal] = useState("general");
   const [target, setTarget] = useState("full_body");
   const [level, setLevel] = useState("beginner");
@@ -72,13 +74,20 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   const generate = async () => {
+    if (mode === "custom" && !customRequest.trim()) {
+      setError("Please describe what you want.");
+      return;
+    }
     setStep("generating");
     setError("");
     try {
+      const body = mode === "custom"
+        ? { customRequest: customRequest.trim(), save: false }
+        : { goal, target, level, equipment, duration, save: false };
       const res = await fetch("/api/workouts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal, target, level, equipment, duration, save: false }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -95,10 +104,13 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
     if (!workout || saving || saved) return;
     setSaving(true);
     try {
+      const body = mode === "custom"
+        ? { customRequest: customRequest.trim(), save: true }
+        : { goal, target, level, equipment, duration, save: true };
       const res = await fetch("/api/workouts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal, target, level, equipment, duration, save: true }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.id) {
@@ -193,6 +205,40 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
               <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</div>
             )}
 
+            {/* Mode toggle */}
+            <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+              <button
+                onClick={() => setMode("presets")}
+                className={`flex-1 text-sm py-2 rounded-lg font-medium transition-all ${mode === "presets" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                🎛️ Presets
+              </button>
+              <button
+                onClick={() => setMode("custom")}
+                className={`flex-1 text-sm py-2 rounded-lg font-medium transition-all ${mode === "custom" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                💬 Custom Request
+              </button>
+            </div>
+
+            {/* Custom request input */}
+            {mode === "custom" && (
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-2">Describe what you want</p>
+                <textarea
+                  value={customRequest}
+                  onChange={(e) => setCustomRequest(e.target.value)}
+                  placeholder={"e.g. \"20 min chest workout at home, no equipment, I have a shoulder injury\"\ne.g. \"Full body HIIT for weight loss, intermediate level, 45 mins\""}
+                  rows={4}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 resize-none"
+                />
+                <p className="text-xs text-gray-400 mt-1.5">Your profile stats (weight, age, injuries) will be included automatically.</p>
+              </div>
+            )}
+
+            {/* Presets */}
+            {mode === "presets" && (
+            <>
             {/* Goal */}
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-2">What&apos;s your goal?</p>
@@ -315,6 +361,8 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
                 ))}
               </div>
             </div>
+            </>
+            )}
           </div>
         )}
 
@@ -432,7 +480,7 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
           {step === "result" && (
             <>
               <button
-                onClick={() => { setStep("form"); setWorkout(null); setSaved(false); setChatMessages([]); }}
+                onClick={() => { setStep("form"); setWorkout(null); setSaved(false); setChatMessages([]); setCustomRequest(""); }}
                 className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-xl px-4 py-2"
               >
                 ← New Workout
