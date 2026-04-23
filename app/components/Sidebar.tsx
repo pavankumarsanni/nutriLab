@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { signOut } from "next-auth/react";
 
 type Conversation = { id: string; title: string; updated_at: string };
 
@@ -10,8 +9,7 @@ type Props = {
   activeId: string | null;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
-  onEditProfile: () => void;
-  user: { name?: string | null; email?: string | null; image?: string | null };
+  onNewChat: () => void;
 };
 
 function groupConversations(conversations: Conversation[]): { label: string; items: Conversation[] }[] {
@@ -69,16 +67,25 @@ function ConversationItem({ c, activeId, onSelect, onDelete }: {
   );
 }
 
-export default function Sidebar({ conversations, activeId, onSelect, onDelete, onEditProfile, user }: Props) {
+export default function Sidebar({ conversations, activeId, onSelect, onDelete, onNewChat }: Props) {
   const [recentChatsOpen, setRecentChatsOpen] = useState(true);
-  const [confirmSignOut, setConfirmSignOut] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
   const groups = groupConversations(conversations);
 
   return (
     <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
+      {/* New Chat button */}
+      <div className="px-3 pt-3 pb-2 flex-shrink-0">
+        <button
+          onClick={onNewChat}
+          className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+          </svg>
+          New Chat
+        </button>
+      </div>
+
       {/* Recent Chats collapsible section */}
       <div className="flex-1 overflow-y-auto">
         <button
@@ -120,103 +127,6 @@ export default function Sidebar({ conversations, activeId, onSelect, onDelete, o
             )}
           </div>
         )}
-      </div>
-
-      {/* User profile + sign out */}
-      <div className="p-3 border-t border-gray-100 space-y-2">
-        {/* Avatar row */}
-        <div className="flex items-center gap-2">
-          {user.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.image} alt={user.name ?? ""} className="w-8 h-8 rounded-full flex-shrink-0" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-green-200 flex items-center justify-center text-xs font-bold text-green-800 flex-shrink-0">
-              {user.name?.[0] ?? "?"}
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-gray-800 truncate">{user.name}</p>
-            <button
-              onClick={onEditProfile}
-              className="text-[10px] text-green-600 hover:text-green-700 transition-colors"
-            >
-              Edit profile
-            </button>
-          </div>
-          {confirmSignOut ? (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-[11px] text-gray-500">Sure?</span>
-              <button
-                onClick={() => signOut()}
-                className="text-[11px] font-medium text-red-500 hover:text-red-700 transition-colors"
-              >
-                Yes
-              </button>
-              <span className="text-gray-300 text-[11px]">·</span>
-              <button
-                onClick={() => setConfirmSignOut(false)}
-                className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                No
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => { setConfirmSignOut(true); setConfirmDelete(false); }}
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-              title="Sign out"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                <path fillRule="evenodd" d="M3 4.25A2.25 2.25 0 0 1 5.25 2h5.5A2.25 2.25 0 0 1 13 4.25v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-2a.75.75 0 0 1 1.5 0v2A2.25 2.25 0 0 1 10.75 18h-5.5A2.25 2.25 0 0 1 3 15.75V4.25Z" clipRule="evenodd" />
-                <path fillRule="evenodd" d="M19 10a.75.75 0 0 0-.75-.75H8.704l1.048-1.08a.75.75 0 1 0-1.04-1.08l-2.5 2.57a.75.75 0 0 0 0 1.08l2.5 2.57a.75.75 0 1 0 1.04-1.08l-1.048-1.08H18.25A.75.75 0 0 0 19 10Z" clipRule="evenodd" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        {/* Delete account row */}
-        {confirmDelete ? (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 space-y-1.5">
-            <p className="text-[11px] text-red-700 font-medium">Delete all your data permanently?</p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={async () => {
-                  setDeleting(true);
-                  try {
-                    await fetch("/api/account", { method: "DELETE" });
-                    signOut({ callbackUrl: "/" });
-                  } catch {
-                    setDeleting(false);
-                    setConfirmDelete(false);
-                  }
-                }}
-                disabled={deleting}
-                className="text-[11px] font-medium text-white bg-red-500 hover:bg-red-600 rounded px-2.5 py-1 transition-colors disabled:opacity-60"
-              >
-                {deleting ? "Deleting…" : "Yes, delete"}
-              </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => { setConfirmDelete(true); setConfirmSignOut(false); }}
-            className="text-[10px] text-gray-400 hover:text-red-500 transition-colors w-full text-left"
-          >
-            Delete my account
-          </button>
-        )}
-
-        {/* Links */}
-        <div className="flex gap-3 pt-1">
-          <a href="/privacy" target="_blank" className="text-[10px] text-gray-300 hover:text-gray-500 transition-colors">Privacy</a>
-          <a href="/terms" target="_blank" className="text-[10px] text-gray-300 hover:text-gray-500 transition-colors">Terms</a>
-        </div>
       </div>
     </aside>
   );
