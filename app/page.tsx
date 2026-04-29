@@ -430,7 +430,7 @@ export default function Home() {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
         <div className="flex px-4 gap-1 overflow-x-auto">
           {(["chat", "recipes", "meal-plans", "workouts", "progress"] as const).map((tab) => {
-            const labels = { chat: "💬 Chat", recipes: "📋 Recipes", "meal-plans": "🗓️ Meal Plans", workouts: "🏋️ Workouts", progress: "📈 Progress" };
+            const labels = { chat: "💬 Chat", recipes: "📋 Saved Recipes", "meal-plans": "🗓️ Meal Plans", workouts: "🏋️ Workouts", progress: "📈 Progress" };
             return (
               <button
                 key={tab}
