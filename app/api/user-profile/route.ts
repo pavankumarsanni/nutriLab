@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries } = await req.json();
+  const { height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries, sex } = await req.json();
 
   try {
     await upsertUserProfile(
@@ -31,7 +31,8 @@ export async function POST(req: Request) {
       target_weight_kg ?? null,
       age ?? null,
       activity_level ?? null,
-      injuries ?? null
+      injuries ?? null,
+      sex ?? null
     );
     return NextResponse.json({ ok: true });
   } catch {
@@ -43,7 +44,8 @@ export async function POST(req: Request) {
       target_weight_kg ?? null,
       age ?? null,
       activity_level ?? null,
-      injuries ?? null
+      injuries ?? null,
+      sex ?? null
     );
     return NextResponse.json({ ok: true });
   }
