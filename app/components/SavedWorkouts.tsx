@@ -44,10 +44,10 @@ export default function SavedWorkouts({ workouts, onDelete, onGenerate }: Props)
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+      <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10">
         <div className="flex items-center gap-2">
           <span className="text-xl">🏋️</span>
-          <h2 className="font-semibold text-gray-900">Workouts</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-gray-100">Workouts</h2>
           {workouts.length > 0 && (
             <span className="text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5">{workouts.length}</span>
           )}
@@ -61,7 +61,7 @@ export default function SavedWorkouts({ workouts, onDelete, onGenerate }: Props)
       </div>
 
       {/* List */}
-      <div className="max-w-2xl mx-auto px-4 py-4 divide-y divide-gray-100">
+      <div className="max-w-2xl mx-auto px-4 py-4 divide-y divide-gray-100 dark:divide-gray-700">
         {workouts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
             <span className="text-5xl">🏋️</span>
@@ -95,12 +95,12 @@ function WorkoutItem({ workout, onDelete }: { workout: Workout; onDelete: (id: s
           <span className="text-green-600 group-open:rotate-90 transition-transform text-xs">▶</span>
           <span className="text-lg">{emoji}</span>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-800 truncate">{workout.title}</p>
-            <p className="text-[11px] text-gray-400">{workout.duration} min · {levelLabel} · {equipLabel}</p>
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{workout.title}</p>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500">{workout.duration} min · {levelLabel} · {equipLabel}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-          <span className="text-[10px] text-gray-400">
+          <span className="text-[10px] text-gray-400 dark:text-gray-500">
             {new Date(workout.created_at).toLocaleDateString()}
           </span>
           <button

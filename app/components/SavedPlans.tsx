@@ -39,10 +39,10 @@ export default function SavedPlans({ plans, onDelete, onGenerate }: Props) {
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+      <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10">
         <div className="flex items-center gap-2">
           <span className="text-xl">🗓️</span>
-          <h2 className="font-semibold text-gray-900">Meal Plans</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-gray-100">Meal Plans</h2>
           {plans.length > 0 && (
             <span className="text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5">{plans.length}</span>
           )}
@@ -56,7 +56,7 @@ export default function SavedPlans({ plans, onDelete, onGenerate }: Props) {
       </div>
 
       {/* List */}
-      <div className="max-w-2xl mx-auto px-4 py-4 divide-y divide-gray-100">
+      <div className="max-w-2xl mx-auto px-4 py-4 divide-y divide-gray-100 dark:divide-gray-700">
         {plans.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
             <span className="text-5xl">🗓️</span>
@@ -87,12 +87,12 @@ function PlanItem({ plan, onDelete }: { plan: MealPlan; onDelete: (id: string) =
           <span className="text-green-600 group-open:rotate-90 transition-transform text-xs">▶</span>
           <span className="text-lg">{emoji}</span>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-800 truncate">{plan.title}</p>
-            <p className="text-[11px] text-gray-400">{plan.duration} days · {dietLabel}</p>
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{plan.title}</p>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500">{plan.duration} days · {dietLabel}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-          <span className="text-[10px] text-gray-400">
+          <span className="text-[10px] text-gray-400 dark:text-gray-500">
             {new Date(plan.created_at).toLocaleDateString()}
           </span>
           <button
@@ -104,7 +104,7 @@ function PlanItem({ plan, onDelete }: { plan: MealPlan; onDelete: (id: string) =
           </button>
         </div>
       </summary>
-      <div className="mt-3 pl-4 prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm prose-table:text-xs prose-th:bg-green-50 prose-th:text-green-900 prose-th:font-semibold prose-td:border-gray-200 prose-tr:border-gray-200 border-l-2 border-green-100">
+      <div className="mt-3 pl-4 prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm prose-table:text-xs prose-th:bg-green-50 dark:prose-th:bg-green-900/30 prose-th:text-green-900 dark:prose-th:text-green-300 prose-th:font-semibold prose-td:border-gray-200 dark:prose-td:border-gray-700 prose-tr:border-gray-200 dark:prose-tr:border-gray-700 border-l-2 border-green-100 dark:border-green-800">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.content}</ReactMarkdown>
       </div>
     </details>
