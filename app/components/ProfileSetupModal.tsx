@@ -9,6 +9,7 @@ type Profile = {
   age: number | null;
   activity_level: string | null;
   injuries: string | null;
+  sex: string | null;
 };
 
 type Props = {
@@ -31,6 +32,7 @@ export default function ProfileSetupModal({ existing, onSaved, onClose }: Props)
   const [age, setAge] = useState(existing?.age?.toString() ?? "");
   const [activityLevel, setActivityLevel] = useState(existing?.activity_level ?? "moderate");
   const [injuries, setInjuries] = useState(existing?.injuries ?? "");
+  const [sex, setSex] = useState<string | null>(existing?.sex ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -54,6 +56,7 @@ export default function ProfileSetupModal({ existing, onSaved, onClose }: Props)
           age: parseInt(age),
           activity_level: activityLevel,
           injuries: injuries.trim() || null,
+          sex: sex,
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
@@ -64,6 +67,7 @@ export default function ProfileSetupModal({ existing, onSaved, onClose }: Props)
         age: parseInt(age),
         activity_level: activityLevel,
         injuries: injuries.trim() || null,
+        sex: sex,
       });
     } catch {
       setError("Something went wrong. Please try again.");
@@ -144,6 +148,29 @@ export default function ProfileSetupModal({ existing, onSaved, onClose }: Props)
                 placeholder="e.g. 68"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
               />
+            </div>
+          </div>
+
+          {/* Sex */}
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-2 block">
+              Biological sex <span className="text-gray-400 font-normal">optional — improves TDEE accuracy</span>
+            </label>
+            <div className="flex gap-2">
+              {[{ value: "male", label: "Male" }, { value: "female", label: "Female" }, { value: null, label: "Prefer not to say" }].map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => setSex(opt.value)}
+                  className={`flex-1 py-2 text-xs font-medium rounded-xl border transition-all ${
+                    sex === opt.value
+                      ? "border-green-500 bg-green-50 text-green-800"
+                      : "border-gray-200 hover:border-gray-300 text-gray-600"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 

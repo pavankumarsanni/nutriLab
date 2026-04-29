@@ -11,13 +11,16 @@ import SavedPlans from "./components/SavedPlans";
 import WorkoutModal from "./components/WorkoutModal";
 import SavedWorkouts from "./components/SavedWorkouts";
 import ProfileSetupModal from "./components/ProfileSetupModal";
+import ProgressDashboard from "./components/ProgressDashboard";
+import { useTheme } from "./components/ThemeProvider";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; updated_at: string };
 type Recipe = { id: string; title: string; content: string; created_at: string };
 type MealPlan = { id: string; title: string; goal: string; diet: string; duration: number; content: string; created_at: string };
 type Workout = { id: string; title: string; goal: string; target: string; level: string; equipment: string; duration: number; content: string; created_at: string };
-type UserProfile = { height_cm: number | null; current_weight_kg: number | null; target_weight_kg: number | null; age: number | null; activity_level: string | null; injuries: string | null };
+type UserProfile = { height_cm: number | null; current_weight_kg: number | null; target_weight_kg: number | null; age: number | null; activity_level: string | null; injuries: string | null; sex: string | null };
+type WeightLog = { id: string; weight_kg: number; logged_at: string };
 
 const SUGGESTIONS = [
   { label: "🔥 Foods that boost metabolism", prompt: "What foods naturally boost metabolism and how do they work?" },
@@ -30,12 +33,13 @@ const SUGGESTIONS = [
 
 export default function Home() {
   const { data: session, status } = useSession();
+  const { theme, toggleTheme } = useTheme();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"chat" | "recipes" | "meal-plans" | "workouts">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "recipes" | "meal-plans" | "workouts" | "progress">("chat");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -46,7 +50,7 @@ export default function Home() {
   // Restore last active tab from localStorage
   useEffect(() => {
     if (window.innerWidth >= 768) setSidebarOpen(true);
-    const lastTab = localStorage.getItem("activeTab") as "chat" | "recipes" | "meal-plans" | "workouts" | null;
+    const lastTab = localStorage.getItem("activeTab") as "chat" | "recipes" | "meal-plans" | "workouts" | "progress" | null;
     if (lastTab) setActiveTab(lastTab);
   }, []);
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
@@ -56,6 +60,7 @@ export default function Home() {
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null | undefined>(undefined);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -70,10 +75,11 @@ export default function Home() {
       fetchMealPlans();
       fetchWorkouts();
       fetchUserProfile();
+      fetchWeightLogs();
     }
   }, [session]);
 
-  const switchTab = useCallback((tab: "chat" | "recipes" | "meal-plans" | "workouts") => {
+  const switchTab = useCallback((tab: "chat" | "recipes" | "meal-plans" | "workouts" | "progress") => {
     setActiveTab(tab);
     localStorage.setItem("activeTab", tab);
   }, []);
@@ -136,6 +142,27 @@ export default function Home() {
     setUserProfile(data.profile ?? null);
     // Show setup modal automatically on first sign-in
     if (!data.profile) setShowProfileModal(true);
+  };
+
+  const fetchWeightLogs = async () => {
+    const res = await fetch("/api/weight-logs");
+    const data = await res.json();
+    if (data.logs) setWeightLogs(data.logs);
+  };
+
+  const handleAddWeightLog = async (weight_kg: number, logged_at: string) => {
+    const res = await fetch("/api/weight-logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weight_kg, logged_at }),
+    });
+    const data = await res.json();
+    if (data.log) setWeightLogs((prev) => [...prev, data.log]);
+  };
+
+  const handleDeleteWeightLog = async (id: string) => {
+    await fetch(`/api/weight-logs/${id}`, { method: "DELETE" });
+    setWeightLogs((prev) => prev.filter((l) => l.id !== id));
   };
 
   const handleDeleteMealPlan = async (id: string) => {
@@ -254,7 +281,7 @@ export default function Home() {
 
   // ── Main app ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
       {showMealPlanModal && (
         <MealPlanModal
           onClose={() => setShowMealPlanModal(false)}
@@ -276,7 +303,7 @@ export default function Home() {
       )}
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm z-20 flex-shrink-0">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3 shadow-sm z-20 flex-shrink-0">
         {activeTab === "chat" && (
           <button
             onClick={() => setSidebarOpen((o) => !o)}
@@ -290,9 +317,18 @@ export default function Home() {
           🧪
         </div>
         <div className="flex-1">
-          <h1 className="font-semibold text-gray-900 leading-tight">NutriFitLab</h1>
-          <p className="text-xs text-gray-500">Eat smart. Train hard.</p>
+          <h1 className="font-semibold text-gray-900 dark:text-gray-100 leading-tight">NutriFitLab</h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Eat smart. Train hard.</p>
         </div>
+
+        {/* Dark mode toggle */}
+        <button
+          onClick={toggleTheme}
+          className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {theme === "dark" ? "☀️" : "🌙"}
+        </button>
 
         {/* Avatar + profile dropdown */}
         <div className="relative flex-shrink-0">
@@ -314,15 +350,15 @@ export default function Home() {
           </button>
 
           {profileMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
-              <div className="px-4 py-2.5 border-b border-gray-100">
-                <p className="text-xs font-semibold text-gray-800 truncate">{session.user.name}</p>
-                <p className="text-[11px] text-gray-400 truncate">{session.user.email}</p>
+            <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-1 z-50">
+              <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-700">
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{session.user.name}</p>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{session.user.email}</p>
               </div>
 
               <button
                 onClick={() => { setShowProfileModal(true); setProfileMenuOpen(false); }}
-                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 ✏️ Edit profile
               </button>
@@ -391,18 +427,18 @@ export default function Home() {
       </header>
 
       {/* Tab bar */}
-      <div className="bg-white border-b border-gray-200 flex-shrink-0">
-        <div className="flex px-4 gap-1">
-          {(["chat", "recipes", "meal-plans", "workouts"] as const).map((tab) => {
-            const labels = { chat: "💬 Chat", recipes: "📋 Recipes", "meal-plans": "🗓️ Meal Plans", workouts: "🏋️ Workouts" };
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <div className="flex px-4 gap-1 overflow-x-auto">
+          {(["chat", "recipes", "meal-plans", "workouts", "progress"] as const).map((tab) => {
+            const labels = { chat: "💬 Chat", recipes: "📋 Recipes", "meal-plans": "🗓️ Meal Plans", workouts: "🏋️ Workouts", progress: "📈 Progress" };
             return (
               <button
                 key={tab}
                 onClick={() => switchTab(tab)}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab
-                    ? "border-green-600 text-green-700"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? "border-green-600 text-green-700 dark:text-green-400"
+                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 }`}
               >
                 {labels[tab]}
@@ -421,6 +457,15 @@ export default function Home() {
       )}
       {activeTab === "workouts" && (
         <SavedWorkouts workouts={workouts} onDelete={handleDeleteWorkout} onGenerate={() => setShowWorkoutModal(true)} />
+      )}
+      {activeTab === "progress" && (
+        <ProgressDashboard
+          profile={userProfile ?? null}
+          weightLogs={weightLogs}
+          onAddLog={handleAddWeightLog}
+          onDeleteLog={handleDeleteWeightLog}
+          onEditProfile={() => setShowProfileModal(true)}
+        />
       )}
       {activeTab === "chat" && (
       <div className="flex flex-1 overflow-hidden">
@@ -443,8 +488,8 @@ export default function Home() {
               <div className="flex flex-col items-center justify-center h-full gap-6 text-center pb-10 px-2">
                 <div className="flex items-center gap-2 text-5xl">🥗🏋️</div>
                 <div>
-                  <h2 className="text-2xl font-semibold text-gray-800">Eat smart. Train hard.</h2>
-                  <p className="text-gray-500 mt-2 max-w-sm text-sm">
+                  <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Eat smart. Train hard.</h2>
+                  <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-sm text-sm">
                     Ask me anything about nutrition, ingredients, fitness, or recovery — I&apos;ll give you science-backed answers tailored to your goals.
                   </p>
                 </div>
@@ -453,7 +498,7 @@ export default function Home() {
                     <button
                       key={s.prompt}
                       onClick={() => send(s.prompt)}
-                      className="text-left text-sm bg-white border border-gray-200 rounded-xl px-4 py-3 hover:bg-green-50 hover:border-green-300 transition-all text-gray-700 shadow-sm"
+                      className="text-left text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-700 transition-all text-gray-700 dark:text-gray-300 shadow-sm"
                     >
                       {s.label}
                     </button>
@@ -472,7 +517,7 @@ export default function Home() {
                     <div className={`max-w-[88%] sm:max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
                       m.role === "user"
                         ? "bg-green-600 text-white rounded-br-sm whitespace-pre-wrap"
-                        : "bg-white text-gray-800 border border-gray-200 rounded-bl-sm"
+                        : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-bl-sm"
                     }`}>
                       {m.role === "user" ? m.content : (
                         <>
@@ -499,7 +544,7 @@ export default function Home() {
                 {loading && (
                   <div className="flex items-end gap-2 justify-start">
                     <div className="w-7 h-7 bg-green-600 rounded-full flex items-center justify-center text-sm flex-shrink-0">🧪</div>
-                    <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
                       <div className="flex gap-1.5 items-center h-4">
                         {[0, 150, 300].map((delay) => (
                           <div key={delay} className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: `${delay}ms` }} />
@@ -514,14 +559,14 @@ export default function Home() {
           </div>
 
           {/* Input */}
-          <div className="bg-white border-t border-gray-200 px-4 py-3 flex-shrink-0">
+          <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex-shrink-0">
             <form onSubmit={handleSubmit} className="flex gap-2 max-w-3xl mx-auto">
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about nutrition, ingredients, fitness, recovery…"
                 disabled={loading}
-                className="flex-1 border border-gray-300 rounded-full px-5 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-50"
+                className="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded-full px-5 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-50 dark:disabled:bg-gray-700"
               />
               <button
                 type="submit"

@@ -100,8 +100,18 @@ export async function runMigrations() {
         age INTEGER,
         activity_level TEXT,
         injuries TEXT,
+        sex TEXT,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS sex TEXT;
+
+      CREATE TABLE IF NOT EXISTS weight_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        weight_kg NUMERIC(5,1) NOT NULL,
+        logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_weight_logs_user ON weight_logs(user_id, logged_at ASC);
 
       CREATE TABLE IF NOT EXISTS workouts (
         id TEXT PRIMARY KEY,
@@ -233,11 +243,12 @@ export type UserProfile = {
   age: number | null;
   activity_level: string | null;
   injuries: string | null;
+  sex: string | null;
 };
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   const result = await getPool().query(
-    `SELECT user_id, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries FROM user_profiles WHERE user_id = $1`,
+    `SELECT user_id, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries, sex FROM user_profiles WHERE user_id = $1`,
     [userId]
   );
   return result.rows[0] ?? null;
@@ -250,11 +261,12 @@ export async function upsertUserProfile(
   target_weight_kg: number | null,
   age: number | null,
   activity_level: string | null,
-  injuries: string | null
+  injuries: string | null,
+  sex: string | null = null
 ) {
   await getPool().query(
-    `INSERT INTO user_profiles (user_id, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO user_profiles (user_id, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries, sex)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (user_id) DO UPDATE SET
        height_cm = EXCLUDED.height_cm,
        current_weight_kg = EXCLUDED.current_weight_kg,
@@ -262,8 +274,35 @@ export async function upsertUserProfile(
        age = EXCLUDED.age,
        activity_level = EXCLUDED.activity_level,
        injuries = EXCLUDED.injuries,
+       sex = EXCLUDED.sex,
        updated_at = NOW()`,
-    [userId, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries]
+    [userId, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries, sex]
+  );
+}
+
+// ── Weight Logs ───────────────────────────────────────────────────────────────
+
+export type WeightLog = { id: string; weight_kg: number; logged_at: string };
+
+export async function getWeightLogs(userId: string): Promise<WeightLog[]> {
+  const result = await getPool().query(
+    `SELECT id, weight_kg, logged_at FROM weight_logs WHERE user_id = $1 ORDER BY logged_at ASC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+export async function addWeightLog(id: string, userId: string, weight_kg: number, logged_at: string) {
+  await getPool().query(
+    `INSERT INTO weight_logs (id, user_id, weight_kg, logged_at) VALUES ($1, $2, $3, $4)`,
+    [id, userId, weight_kg, logged_at]
+  );
+}
+
+export async function deleteWeightLog(id: string, userId: string) {
+  await getPool().query(
+    `DELETE FROM weight_logs WHERE id = $1 AND user_id = $2`,
+    [id, userId]
   );
 }
 
