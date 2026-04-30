@@ -37,5 +37,5 @@ export async function POST(req: Request) {
     await addWeightLog(id, session.user.id, weight_kg, timestamp);
   }
 
-  return NextResponse.json({ id });
+  return NextResponse.json({ log: { id, weight_kg, logged_at: timestamp } });
 }

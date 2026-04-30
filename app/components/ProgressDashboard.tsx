@@ -3,6 +3,7 @@
 import { useState } from "react";
 import MacroCard from "./MacroCard";
 import WeightChart from "./WeightChart";
+import FoodDiary from "./FoodDiary";
 
 type WeightLog = { id: string; weight_kg: number; logged_at: string };
 type Profile = {
@@ -90,29 +91,37 @@ export default function ProgressDashboard({ profile, weightLogs, onAddLog, onDel
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Log Weight</h3>
         {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
-        <div className="flex gap-2">
-          <input
-            type="number"
-            step="0.1"
-            value={weightInput}
-            onChange={(e) => setWeightInput(e.target.value)}
-            placeholder="e.g. 74.5"
-            className="flex-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400"
-          />
-          <input
-            type="date"
-            value={dateInput}
-            onChange={(e) => setDateInput(e.target.value)}
-            className="border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400"
-          />
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="number"
+              step="0.1"
+              value={weightInput}
+              onChange={(e) => setWeightInput(e.target.value)}
+              placeholder="e.g. 74.5 kg"
+              className="flex-1 min-w-0 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400"
+            />
+            <input
+              type="date"
+              value={dateInput}
+              onChange={(e) => setDateInput(e.target.value)}
+              className="flex-shrink-0 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400"
+            />
+          </div>
           <button
             onClick={handleAddLog}
             disabled={submitting || !weightInput}
-            className="bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+            className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
           >
-            {submitting ? "…" : "Log"}
+            {submitting ? "Saving…" : "Log Weight"}
           </button>
         </div>
+      </div>
+
+      {/* Food diary */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Food Diary</h3>
+        <FoodDiary profile={profile} />
       </div>
 
       {/* Log history */}
