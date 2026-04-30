@@ -106,10 +106,15 @@ export default function MacroCard({ profile, onEditProfile }: { profile: Profile
   const carbsG = Math.round(carbsKcal / 4);
   const fatG = Math.round(fatKcal / 9);
 
+  // Fiber: 14g per 1,000 kcal baseline; +10% for weight loss (satiety on a deficit)
+  const fiberBase = Math.round((targetCalories / 1000) * 14);
+  const fiberG = profile.fitness_goal === "lose_weight" ? Math.round(fiberBase * 1.1) : fiberBase;
+
   const macros = [
-    { label: "Protein", g: proteinG, kcal: proteinKcal, color: "bg-blue-500", light: "bg-blue-50 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-300" },
-    { label: "Carbs",   g: carbsG,   kcal: carbsKcal,   color: "bg-yellow-400", light: "bg-yellow-50 dark:bg-yellow-900/30", text: "text-yellow-700 dark:text-yellow-300" },
-    { label: "Fat",     g: fatG,     kcal: fatKcal,     color: "bg-red-400", light: "bg-red-50 dark:bg-red-900/30", text: "text-red-700 dark:text-red-300" },
+    { label: "Protein", g: proteinG, sub: `${proteinKcal} kcal`, color: "bg-blue-500",   light: "bg-blue-50 dark:bg-blue-900/30",   text: "text-blue-700 dark:text-blue-300" },
+    { label: "Carbs",   g: carbsG,   sub: `${carbsKcal} kcal`,   color: "bg-yellow-400", light: "bg-yellow-50 dark:bg-yellow-900/30", text: "text-yellow-700 dark:text-yellow-300" },
+    { label: "Fat",     g: fatG,     sub: `${fatKcal} kcal`,     color: "bg-red-400",    light: "bg-red-50 dark:bg-red-900/30",     text: "text-red-700 dark:text-red-300" },
+    { label: "Fiber",   g: fiberG,   sub: "daily minimum",       color: "bg-green-500",  light: "bg-green-50 dark:bg-green-900/30", text: "text-green-700 dark:text-green-300" },
   ];
 
   return (
@@ -157,13 +162,13 @@ export default function MacroCard({ profile, onEditProfile }: { profile: Profile
       </div>
 
       {/* Macro cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-2">
         {macros.map((m) => (
           <div key={m.label} className={`${m.light} rounded-xl p-3 text-center`}>
             <div className={`w-full h-1 ${m.color} rounded-full mb-2`} />
             <p className={`text-lg font-bold ${m.text}`}>{m.g}g</p>
             <p className="text-[11px] text-gray-500 dark:text-gray-400">{m.label}</p>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500">{m.kcal} kcal</p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500">{m.sub}</p>
           </div>
         ))}
       </div>
