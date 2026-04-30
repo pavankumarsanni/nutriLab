@@ -7,6 +7,7 @@ type Profile = {
   age: number | null;
   activity_level: string | null;
   sex: string | null;
+  fitness_goal: string | null;
 };
 
 const ACTIVITY_MULTIPLIERS: Record<string, number> = {
@@ -14,6 +15,45 @@ const ACTIVITY_MULTIPLIERS: Record<string, number> = {
   light: 1.375,
   moderate: 1.55,
   very_active: 1.725,
+};
+
+type GoalConfig = {
+  label: string;
+  emoji: string;
+  calorieAdjust: number;
+  color: string;
+  macros: { protein: number; carbs: number; fat: number };
+};
+
+const GOAL_CONFIG: Record<string, GoalConfig> = {
+  lose_weight: {
+    label: "Weight Loss",
+    emoji: "🔥",
+    calorieAdjust: -500,
+    color: "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300",
+    macros: { protein: 0.40, carbs: 0.35, fat: 0.25 },
+  },
+  maintain: {
+    label: "Maintenance",
+    emoji: "⚖️",
+    calorieAdjust: 0,
+    color: "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300",
+    macros: { protein: 0.30, carbs: 0.45, fat: 0.25 },
+  },
+  lean_muscle: {
+    label: "Lean Muscle Gain",
+    emoji: "💪",
+    calorieAdjust: 250,
+    color: "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300",
+    macros: { protein: 0.35, carbs: 0.45, fat: 0.20 },
+  },
+  bulk: {
+    label: "Bulk",
+    emoji: "📈",
+    calorieAdjust: 500,
+    color: "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300",
+    macros: { protein: 0.30, carbs: 0.50, fat: 0.20 },
+  },
 };
 
 function calculateTDEE(profile: Profile): { tdee: number; bmr: number } | null {
@@ -26,10 +66,7 @@ function calculateTDEE(profile: Profile): { tdee: number; bmr: number } | null {
   } else if (sex === "female") {
     bmr = 10 * current_weight_kg + 6.25 * height_cm - 5 * age - 161;
   } else {
-    // Average of male and female formulas
-    const bmrMale = 10 * current_weight_kg + 6.25 * height_cm - 5 * age + 5;
-    const bmrFemale = 10 * current_weight_kg + 6.25 * height_cm - 5 * age - 161;
-    bmr = (bmrMale + bmrFemale) / 2;
+    bmr = 10 * current_weight_kg + 6.25 * height_cm - 5 * age - 78;
   }
 
   const multiplier = ACTIVITY_MULTIPLIERS[activity_level] ?? 1.375;
@@ -58,25 +95,21 @@ export default function MacroCard({ profile, onEditProfile }: { profile: Profile
 
   const { tdee } = result;
 
-  // Macro split: 30% protein, 45% carbs, 25% fat
-  const proteinKcal = Math.round(tdee * 0.30);
-  const carbsKcal = Math.round(tdee * 0.45);
-  const fatKcal = Math.round(tdee * 0.25);
+  const goal = profile.fitness_goal ? GOAL_CONFIG[profile.fitness_goal] : null;
+  const targetCalories = goal ? tdee + goal.calorieAdjust : tdee;
+  const macroSplit = goal?.macros ?? { protein: 0.30, carbs: 0.45, fat: 0.25 };
+
+  const proteinKcal = Math.round(targetCalories * macroSplit.protein);
+  const carbsKcal = Math.round(targetCalories * macroSplit.carbs);
+  const fatKcal = Math.round(targetCalories * macroSplit.fat);
   const proteinG = Math.round(proteinKcal / 4);
   const carbsG = Math.round(carbsKcal / 4);
   const fatG = Math.round(fatKcal / 9);
 
-  // Goal direction
-  const diff = profile.target_weight_kg && profile.current_weight_kg
-    ? profile.target_weight_kg - profile.current_weight_kg
-    : null;
-  const goalCalories = diff === null ? tdee : diff < 0 ? tdee - 500 : diff > 0 ? tdee + 300 : tdee;
-  const goalLabel = diff === null ? null : diff < 0 ? "deficit (fat loss)" : diff > 0 ? "surplus (muscle gain)" : "maintenance";
-
   const macros = [
     { label: "Protein", g: proteinG, kcal: proteinKcal, color: "bg-blue-500", light: "bg-blue-50 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-300" },
-    { label: "Carbs", g: carbsG, kcal: carbsKcal, color: "bg-yellow-400", light: "bg-yellow-50 dark:bg-yellow-900/30", text: "text-yellow-700 dark:text-yellow-300" },
-    { label: "Fat", g: fatG, kcal: fatKcal, color: "bg-red-400", light: "bg-red-50 dark:bg-red-900/30", text: "text-red-700 dark:text-red-300" },
+    { label: "Carbs",   g: carbsG,   kcal: carbsKcal,   color: "bg-yellow-400", light: "bg-yellow-50 dark:bg-yellow-900/30", text: "text-yellow-700 dark:text-yellow-300" },
+    { label: "Fat",     g: fatG,     kcal: fatKcal,     color: "bg-red-400", light: "bg-red-50 dark:bg-red-900/30", text: "text-red-700 dark:text-red-300" },
   ];
 
   return (
@@ -91,17 +124,35 @@ export default function MacroCard({ profile, onEditProfile }: { profile: Profile
         <button onClick={onEditProfile} className="text-xs text-green-600 hover:text-green-700 dark:text-green-400">Edit profile</button>
       </div>
 
-      {/* TDEE display */}
-      <div className="text-center py-2">
-        <p className="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Maintenance calories</p>
-        <p className="text-4xl font-bold text-gray-900 dark:text-gray-100">{tdee.toLocaleString()}</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">kcal / day</p>
-        {goalLabel && (
-          <div className="mt-2 inline-flex items-center gap-1.5 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-full px-3 py-1">
-            <span className="text-xs font-medium text-green-700 dark:text-green-300">
-              {goalCalories.toLocaleString()} kcal for {goalLabel}
+      {/* Goal badge */}
+      {goal ? (
+        <div className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 border text-sm font-medium ${goal.color}`}>
+          <span>{goal.emoji}</span>
+          <span>{goal.label}</span>
+          {goal.calorieAdjust !== 0 && (
+            <span className="text-xs opacity-70">
+              ({goal.calorieAdjust > 0 ? "+" : ""}{goal.calorieAdjust} kcal from maintenance)
             </span>
-          </div>
+          )}
+        </div>
+      ) : (
+        <button
+          onClick={onEditProfile}
+          className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-3 py-2 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+        >
+          🎯 Set your fitness goal for personalised targets
+        </button>
+      )}
+
+      {/* Calorie display */}
+      <div className="text-center py-2">
+        <p className="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">
+          {goal ? "Target calories" : "Maintenance calories"}
+        </p>
+        <p className="text-4xl font-bold text-gray-900 dark:text-gray-100">{targetCalories.toLocaleString()}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">kcal / day</p>
+        {goal && goal.calorieAdjust !== 0 && (
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Maintenance: {tdee.toLocaleString()} kcal</p>
         )}
       </div>
 

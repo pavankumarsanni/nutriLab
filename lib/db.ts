@@ -104,6 +104,7 @@ export async function runMigrations() {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS sex TEXT;
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS fitness_goal TEXT;
 
       CREATE TABLE IF NOT EXISTS weight_logs (
         id TEXT PRIMARY KEY,
@@ -255,11 +256,12 @@ export type UserProfile = {
   activity_level: string | null;
   injuries: string | null;
   sex: string | null;
+  fitness_goal: string | null;
 };
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   const result = await getPool().query(
-    `SELECT user_id, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries, sex FROM user_profiles WHERE user_id = $1`,
+    `SELECT user_id, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries, sex, fitness_goal FROM user_profiles WHERE user_id = $1`,
     [userId]
   );
   return result.rows[0] ?? null;
@@ -273,11 +275,12 @@ export async function upsertUserProfile(
   age: number | null,
   activity_level: string | null,
   injuries: string | null,
-  sex: string | null = null
+  sex: string | null = null,
+  fitness_goal: string | null = null
 ) {
   await getPool().query(
-    `INSERT INTO user_profiles (user_id, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries, sex)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO user_profiles (user_id, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries, sex, fitness_goal)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT (user_id) DO UPDATE SET
        height_cm = EXCLUDED.height_cm,
        current_weight_kg = EXCLUDED.current_weight_kg,
@@ -286,8 +289,9 @@ export async function upsertUserProfile(
        activity_level = EXCLUDED.activity_level,
        injuries = EXCLUDED.injuries,
        sex = EXCLUDED.sex,
+       fitness_goal = EXCLUDED.fitness_goal,
        updated_at = NOW()`,
-    [userId, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries, sex]
+    [userId, height_cm, current_weight_kg, target_weight_kg, age, activity_level, injuries, sex, fitness_goal]
   );
 }
 
