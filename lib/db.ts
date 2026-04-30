@@ -126,6 +126,17 @@ export async function runMigrations() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_workouts_user ON workouts(user_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS food_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        meal_type TEXT NOT NULL,
+        food_name TEXT NOT NULL,
+        calories INTEGER,
+        logged_date DATE NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_food_logs_user_date ON food_logs(user_id, logged_date DESC);
     `);
   } finally {
     client.release();
@@ -329,6 +340,32 @@ export async function saveWorkout(
 export async function deleteWorkout(id: string, userId: string) {
   await getPool().query(
     `DELETE FROM workouts WHERE id = $1 AND user_id = $2`,
+    [id, userId]
+  );
+}
+
+// ── Food Logs ─────────────────────────────────────────────────────────────────
+
+export type FoodLog = { id: string; meal_type: string; food_name: string; calories: number | null; logged_date: string };
+
+export async function getFoodLogs(userId: string, date: string): Promise<FoodLog[]> {
+  const result = await getPool().query(
+    `SELECT id, meal_type, food_name, calories, logged_date FROM food_logs WHERE user_id = $1 AND logged_date = $2 ORDER BY created_at ASC`,
+    [userId, date]
+  );
+  return result.rows;
+}
+
+export async function addFoodLog(id: string, userId: string, meal_type: string, food_name: string, calories: number | null, logged_date: string) {
+  await getPool().query(
+    `INSERT INTO food_logs (id, user_id, meal_type, food_name, calories, logged_date) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, userId, meal_type, food_name, calories, logged_date]
+  );
+}
+
+export async function deleteFoodLog(id: string, userId: string) {
+  await getPool().query(
+    `DELETE FROM food_logs WHERE id = $1 AND user_id = $2`,
     [id, userId]
   );
 }
