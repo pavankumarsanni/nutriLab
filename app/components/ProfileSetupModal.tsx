@@ -10,7 +10,15 @@ type Profile = {
   activity_level: string | null;
   injuries: string | null;
   sex: string | null;
+  fitness_goal: string | null;
 };
+
+const FITNESS_GOALS = [
+  { value: "lose_weight",   label: "🔥 Lose Weight",     desc: "Calorie deficit, preserve muscle" },
+  { value: "maintain",      label: "⚖️ Maintain",         desc: "Eat at maintenance level" },
+  { value: "lean_muscle",   label: "💪 Lean Muscle Gain", desc: "Slow bulk, minimal fat gain" },
+  { value: "bulk",          label: "📈 Bulk",             desc: "Faster mass gain" },
+];
 
 type Props = {
   existing: Profile | null;
@@ -33,6 +41,7 @@ export default function ProfileSetupModal({ existing, onSaved, onClose }: Props)
   const [activityLevel, setActivityLevel] = useState(existing?.activity_level ?? "moderate");
   const [injuries, setInjuries] = useState(existing?.injuries ?? "");
   const [sex, setSex] = useState<string | null>(existing?.sex ?? null);
+  const [fitnessGoal, setFitnessGoal] = useState<string | null>(existing?.fitness_goal ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -57,6 +66,7 @@ export default function ProfileSetupModal({ existing, onSaved, onClose }: Props)
           activity_level: activityLevel,
           injuries: injuries.trim() || null,
           sex: sex,
+          fitness_goal: fitnessGoal,
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
@@ -68,6 +78,7 @@ export default function ProfileSetupModal({ existing, onSaved, onClose }: Props)
         activity_level: activityLevel,
         injuries: injuries.trim() || null,
         sex: sex,
+        fitness_goal: fitnessGoal,
       });
     } catch {
       setError("Something went wrong. Please try again.");
@@ -100,6 +111,28 @@ export default function ProfileSetupModal({ existing, onSaved, onClose }: Props)
           {error && (
             <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</div>
           )}
+
+          {/* Fitness Goal */}
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-2 block">What&apos;s your goal?</label>
+            <div className="grid grid-cols-2 gap-2">
+              {FITNESS_GOALS.map((g) => (
+                <button
+                  key={g.value}
+                  type="button"
+                  onClick={() => setFitnessGoal(g.value)}
+                  className={`text-left rounded-xl px-3 py-2.5 border transition-all text-sm ${
+                    fitnessGoal === g.value
+                      ? "border-green-500 bg-green-50 text-green-800"
+                      : "border-gray-200 hover:border-gray-300 text-gray-700"
+                  }`}
+                >
+                  <p className="font-medium text-xs">{g.label}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">{g.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Height & Age row */}
           <div className="grid grid-cols-2 gap-3">

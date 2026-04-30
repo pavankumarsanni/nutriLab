@@ -14,6 +14,7 @@ type Profile = {
   activity_level: string | null;
   sex: string | null;
   injuries: string | null;
+  fitness_goal: string | null;
 };
 
 type Props = {

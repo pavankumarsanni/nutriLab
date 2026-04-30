@@ -41,6 +41,8 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [foodInput, setFoodInput] = useState("");
   const [caloriesInput, setCaloriesInput] = useState("");
+  const [estimating, setEstimating] = useState(false);
+  const [isEstimated, setIsEstimated] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const fetchLogs = useCallback(async (date: string) => {
@@ -55,6 +57,26 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
   }, []);
 
   useEffect(() => { fetchLogs(selectedDate); }, [selectedDate, fetchLogs]);
+
+  const handleEstimate = async () => {
+    if (!foodInput.trim()) return;
+    setEstimating(true);
+    setIsEstimated(false);
+    try {
+      const res = await fetch("/api/food-logs/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ food_name: foodInput.trim() }),
+      });
+      const data = await res.json();
+      if (data.calories) {
+        setCaloriesInput(String(data.calories));
+        setIsEstimated(true);
+      }
+    } finally {
+      setEstimating(false);
+    }
+  };
 
   const handleAdd = async (meal_type: string) => {
     if (!foodInput.trim()) return;
@@ -74,6 +96,7 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
       if (data.log) setLogs((prev) => [...prev, data.log]);
       setFoodInput("");
       setCaloriesInput("");
+      setIsEstimated(false);
       setAddingTo(null);
     } finally {
       setSaving(false);
@@ -163,7 +186,7 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
                   )}
                 </div>
                 <button
-                  onClick={() => { setAddingTo(isAdding ? null : key); setFoodInput(""); setCaloriesInput(""); }}
+                  onClick={() => { setAddingTo(isAdding ? null : key); setFoodInput(""); setCaloriesInput(""); setIsEstimated(false); }}
                   className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${
                     isAdding
                       ? "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
@@ -202,23 +225,39 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
               {/* Add form */}
               {isAdding && (
                 <div className="mt-2 space-y-2">
-                  <input
-                    type="text"
-                    value={foodInput}
-                    onChange={(e) => setFoodInput(e.target.value)}
-                    placeholder="Food name (e.g. Oats with milk)"
-                    autoFocus
-                    onKeyDown={(e) => { if (e.key === "Enter") handleAdd(key); }}
-                    className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400"
-                  />
                   <div className="flex gap-2">
                     <input
-                      type="number"
-                      value={caloriesInput}
-                      onChange={(e) => setCaloriesInput(e.target.value)}
-                      placeholder="Calories (optional)"
-                      className="flex-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400"
+                      type="text"
+                      value={foodInput}
+                      onChange={(e) => { setFoodInput(e.target.value); setIsEstimated(false); setCaloriesInput(""); }}
+                      placeholder="e.g. 2 eggs and toast with butter"
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === "Enter") handleEstimate(); }}
+                      className="flex-1 min-w-0 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400"
                     />
+                    <button
+                      onClick={handleEstimate}
+                      disabled={estimating || !foodInput.trim()}
+                      className="flex-shrink-0 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-700 rounded-xl px-3 py-2 text-xs font-medium transition-colors disabled:opacity-40 whitespace-nowrap"
+                      title="Estimate calories with AI"
+                    >
+                      {estimating ? "…" : "✨ Estimate"}
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2 items-center">
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        value={caloriesInput}
+                        onChange={(e) => { setCaloriesInput(e.target.value); setIsEstimated(false); }}
+                        placeholder="Calories (optional)"
+                        className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400"
+                      />
+                      {isEstimated && caloriesInput && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-blue-500 dark:text-blue-400 font-medium">~AI</span>
+                      )}
+                    </div>
                     <button
                       onClick={() => handleAdd(key)}
                       disabled={saving || !foodInput.trim()}
@@ -227,6 +266,9 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
                       {saving ? "…" : "Add"}
                     </button>
                   </div>
+                  {isEstimated && caloriesInput && (
+                    <p className="text-[11px] text-blue-500 dark:text-blue-400">✨ AI estimate — you can edit this if you know the exact amount</p>
+                  )}
                 </div>
               )}
             </div>

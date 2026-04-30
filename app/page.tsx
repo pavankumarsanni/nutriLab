@@ -19,7 +19,7 @@ type Conversation = { id: string; title: string; updated_at: string };
 type Recipe = { id: string; title: string; content: string; created_at: string };
 type MealPlan = { id: string; title: string; goal: string; diet: string; duration: number; content: string; created_at: string };
 type Workout = { id: string; title: string; goal: string; target: string; level: string; equipment: string; duration: number; content: string; created_at: string };
-type UserProfile = { height_cm: number | null; current_weight_kg: number | null; target_weight_kg: number | null; age: number | null; activity_level: string | null; injuries: string | null; sex: string | null };
+type UserProfile = { height_cm: number | null; current_weight_kg: number | null; target_weight_kg: number | null; age: number | null; activity_level: string | null; injuries: string | null; sex: string | null; fitness_goal: string | null };
 type WeightLog = { id: string; weight_kg: number; logged_at: string };
 
 const SUGGESTIONS = [
