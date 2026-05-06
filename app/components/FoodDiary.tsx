@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 type FoodLog = { id: string; meal_type: string; food_name: string; calories: number | null; logged_date: string };
 type Profile = {
@@ -43,7 +43,10 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
   const [caloriesInput, setCaloriesInput] = useState("");
   const [estimating, setEstimating] = useState(false);
   const [isEstimated, setIsEstimated] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchLogs = useCallback(async (date: string) => {
     setLoadingLogs(true);
@@ -78,6 +81,33 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
     }
   };
 
+  const handleImageScan = async (file: File) => {
+    setScanning(true);
+    setIsEstimated(false);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch("/api/food-logs/estimate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_base64: base64, media_type: file.type }),
+      });
+      const data = await res.json();
+      if (data.food_name) { setFoodInput(data.food_name); setIsEstimated(true); }
+      if (data.calories) setCaloriesInput(String(data.calories));
+    } catch {
+      // silently fail — user can type manually
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const handleAdd = async (meal_type: string) => {
     if (!foodInput.trim()) return;
     setSaving(true);
@@ -97,6 +127,7 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
       setFoodInput("");
       setCaloriesInput("");
       setIsEstimated(false);
+      setPreviewUrl(null);
       setAddingTo(null);
     } finally {
       setSaving(false);
@@ -186,7 +217,7 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
                   )}
                 </div>
                 <button
-                  onClick={() => { setAddingTo(isAdding ? null : key); setFoodInput(""); setCaloriesInput(""); setIsEstimated(false); }}
+                  onClick={() => { setAddingTo(isAdding ? null : key); setFoodInput(""); setCaloriesInput(""); setIsEstimated(false); setPreviewUrl(null); }}
                   className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${
                     isAdding
                       ? "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
@@ -225,6 +256,33 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
               {/* Add form */}
               {isAdding && (
                 <div className="mt-2 space-y-2">
+                  {/* Hidden file input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageScan(f); e.target.value = ""; }}
+                  />
+
+                  {/* Image preview */}
+                  {previewUrl && (
+                    <div className="relative w-full rounded-xl overflow-hidden border border-gray-200 dark:border-gray-600">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={previewUrl} alt="Food preview" className="w-full max-h-40 object-cover" />
+                      {scanning && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <p className="text-white text-sm font-medium">✨ Analysing food…</p>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => { setPreviewUrl(null); setFoodInput(""); setCaloriesInput(""); setIsEstimated(false); }}
+                        className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition-colors"
+                      >✕</button>
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -235,6 +293,15 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
                       onKeyDown={(e) => { if (e.key === "Enter") handleEstimate(); }}
                       className="flex-1 min-w-0 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400"
                     />
+                    {/* Camera button */}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={scanning}
+                      className="flex-shrink-0 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-700 rounded-xl px-3 py-2 text-sm transition-colors disabled:opacity-40"
+                      title="Scan food with camera"
+                    >
+                      {scanning ? "⏳" : "📷"}
+                    </button>
                     <button
                       onClick={handleEstimate}
                       disabled={estimating || !foodInput.trim()}

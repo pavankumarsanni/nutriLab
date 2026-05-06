@@ -521,7 +521,7 @@ export default function Home() {
                     }`}>
                       {m.role === "user" ? m.content : (
                         <>
-                          <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-headings:font-semibold prose-th:bg-green-50 prose-th:text-green-900 prose-th:font-semibold prose-td:border-gray-200 prose-tr:border-gray-200">
+                          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-headings:font-semibold prose-th:bg-green-50 dark:prose-th:bg-green-900/30 prose-th:text-green-900 dark:prose-th:text-green-300 prose-th:font-semibold prose-td:border-gray-200 dark:prose-td:border-gray-700 prose-tr:border-gray-200 dark:prose-tr:border-gray-700">
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
