@@ -263,6 +263,13 @@ export default function WorkoutContent({ content }: { content: string }) {
         </div>
       </div>
 
+      {/* Quick-start hint */}
+      {!sessionRunning && (
+        <p className="text-xs text-center text-gray-400 dark:text-gray-500 -mt-3">
+          👇 Expand an exercise · tick sets to log them · rest timer starts automatically
+        </p>
+      )}
+
       {/* Intro */}
       <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{plan.intro}</p>
 
@@ -282,6 +289,7 @@ export default function WorkoutContent({ content }: { content: string }) {
             {plan.exercises.map((ex, i) => (
               <ExerciseCard
                 key={i} exercise={ex} index={i + 1}
+                defaultOpen={i === 0}
                 onSetDone={(restSecs) => { startRest(restSecs); if (!sessionRunning) setSessionRunning(true); }}
               />
             ))}
@@ -363,10 +371,10 @@ function SimpleItem({ item }: { item: WarmCoolItem }) {
   );
 }
 
-function ExerciseCard({ exercise, index, onSetDone }: {
-  exercise: Exercise; index: number; onSetDone: (restSeconds: number) => void;
+function ExerciseCard({ exercise, index, onSetDone, defaultOpen = false }: {
+  exercise: Exercise; index: number; onSetDone: (restSeconds: number) => void; defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [completedSets, setCompletedSets] = useState<Set<number>>(new Set());
   const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.youtube_query)}`;
   const numSets = parseSets(exercise.sets);
