@@ -39,18 +39,31 @@ function parseRestSeconds(rest: string): number {
   return 60;
 }
 
+// Shared AudioContext — created once on first user gesture so browsers allow sound
+let sharedAudioCtx: AudioContext | null = null;
+
+function unlockAudio() {
+  try {
+    if (!sharedAudioCtx) sharedAudioCtx = new AudioContext();
+    if (sharedAudioCtx.state === "suspended") sharedAudioCtx.resume();
+  } catch { /* not supported */ }
+}
+
 function playBeep() {
   try {
-    const ctx = new AudioContext();
-    [0, 0.15, 0.3].forEach((delay) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.value = 880; osc.type = "sine";
-      gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.2);
-      osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + 0.2);
+    const ctx = sharedAudioCtx ?? new AudioContext();
+    if (!sharedAudioCtx) sharedAudioCtx = ctx;
+    ctx.resume().then(() => {
+      [0, 0.15, 0.3].forEach((delay) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 880; osc.type = "sine";
+        gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.2);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.2);
+      });
     });
   } catch { /* audio not supported */ }
 }
@@ -250,7 +263,7 @@ export default function WorkoutContent({ content }: { content: string }) {
           <button
             onClick={() => {
               if (sessionRunning) { setSessionRunning(false); setSessionSeconds(0); }
-              else setSessionRunning(true);
+              else { unlockAudio(); setSessionRunning(true); }
             }}
             className={`mt-1 text-sm font-medium px-4 py-1.5 rounded-xl transition-colors ${
               sessionRunning
@@ -382,6 +395,7 @@ function ExerciseCard({ exercise, index, onSetDone, defaultOpen = false }: {
   const allDone = completedSets.size === numSets;
 
   const toggleSet = (i: number) => {
+    unlockAudio(); // must be called inside the click handler (user gesture)
     setCompletedSets((prev) => {
       const next = new Set(prev);
       if (next.has(i)) { next.delete(i); }
