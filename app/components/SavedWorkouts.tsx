@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import WorkoutContent from "./WorkoutContent";
 
 type Workout = {
@@ -88,56 +87,6 @@ function WorkoutItem({ workout, onDelete }: { workout: Workout; onDelete: (id: s
   const emoji = GOAL_EMOJI[workout.goal] ?? "🏋️";
   const levelLabel = LEVEL_LABELS[workout.level] ?? workout.level;
   const equipLabel = EQUIPMENT_LABELS[workout.equipment] ?? workout.equipment;
-  const [copied, setCopied] = useState(false);
-  const [shareError, setShareError] = useState(false);
-  const [sharing, setSharing] = useState(false);
-
-  async function copyToClipboard(text: string): Promise<boolean> {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Fallback for browsers that block clipboard API
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.position = "fixed"; ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.focus(); ta.select();
-        const ok = document.execCommand("copy");
-        document.body.removeChild(ta);
-        return ok;
-      } catch { return false; }
-    }
-  }
-
-  async function handleShare(e: React.MouseEvent) {
-    e.preventDefault();
-    if (sharing) return;
-    setSharing(true);
-    setShareError(false);
-    try {
-      const res = await fetch(`/api/workouts/${workout.id}/share`, { method: "POST" });
-      if (!res.ok) throw new Error("API error");
-      const data = await res.json();
-      if (data.shareUrl) {
-        const ok = await copyToClipboard(data.shareUrl);
-        if (ok) {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        } else {
-          // Clipboard blocked — show the URL in a prompt so they can copy manually
-          window.prompt("Copy this link to share:", data.shareUrl);
-        }
-      }
-    } catch {
-      setShareError(true);
-      setTimeout(() => setShareError(false), 2000);
-    } finally {
-      setSharing(false);
-    }
-  }
-
   return (
     <details className="group py-3">
       <summary className="flex items-center justify-between cursor-pointer list-none">
@@ -153,23 +102,6 @@ function WorkoutItem({ workout, onDelete }: { workout: Workout; onDelete: (id: s
           <span className="text-[10px] text-gray-400 dark:text-gray-500">
             {new Date(workout.created_at).toLocaleDateString()}
           </span>
-          {copied ? (
-            <span className="text-[10px] text-green-600 dark:text-green-400 font-medium whitespace-nowrap">✓ Link copied!</span>
-          ) : shareError ? (
-            <span className="text-[10px] text-red-500 font-medium whitespace-nowrap">Failed, try again</span>
-          ) : (
-            <button
-              onClick={handleShare}
-              disabled={sharing}
-              className="text-gray-400 dark:text-gray-500 hover:text-green-500 dark:hover:text-green-400 transition-colors disabled:opacity-50"
-              title="Copy share link"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                <path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z" />
-                <path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z" />
-              </svg>
-            </button>
-          )}
           <button
             onClick={(e) => { e.preventDefault(); onDelete(workout.id); }}
             className="text-gray-300 hover:text-red-400 transition-colors text-sm"
