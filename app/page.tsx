@@ -307,10 +307,12 @@ export default function Home() {
         {activeTab === "chat" && (
           <button
             onClick={() => setSidebarOpen((o) => !o)}
-            className="text-gray-400 hover:text-gray-600 transition-colors mr-1"
-            title="Toggle sidebar"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors mr-1"
+            title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
           >
-            ☰
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-5 h-5 transition-transform duration-200 ${sidebarOpen ? "" : "rotate-180"}`}>
+              <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+            </svg>
           </button>
         )}
         <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-lg flex-shrink-0">
