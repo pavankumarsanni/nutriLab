@@ -86,6 +86,11 @@ User profile:
   if (customRequest) {
     const customPrompt = `You are a certified personal trainer. Create a workout plan based on this request: "${customRequest}"
 ${profileContext}
+Important rules:
+- Generate exactly ONE session (45-60 minutes). If the user asked for a multi-day split, describe the full split programme in the "intro" field and label this session as Day 1.
+- Include 3-4 warm-up exercises, exactly 6 main exercises, and 3 cool-down stretches. No more.
+- Keep instructions to 3-4 steps each and common_mistakes to 2 items each to stay concise.
+
 Return ONLY a valid JSON object with this exact structure (no markdown, no extra text):
 {
   "intro": "2-3 sentence overview of the workout approach",
@@ -112,7 +117,7 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no extra
 
     const customMessage = await client.messages.create({
       model: "claude-sonnet-4-5",
-      max_tokens: 3000,
+      max_tokens: 6000,
       messages: [{ role: "user", content: customPrompt }],
     });
 
@@ -172,7 +177,7 @@ Include 3-4 warm-up exercises, 5-7 main exercises, and 3-4 cool-down stretches. 
 
   const message = await client.messages.create({
     model: "claude-sonnet-4-5",
-    max_tokens: 3000,
+    max_tokens: 6000,
     messages: [{ role: "user", content: prompt }],
   });
 
