@@ -48,18 +48,24 @@ function ConversationItem({ c, activeId, onSelect, onDelete }: {
   return (
     <div
       className={`group flex items-start justify-between gap-1 mx-2 mb-0.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
-        c.id === activeId ? "bg-green-50 border border-green-200" : "hover:bg-gray-50"
+        c.id === activeId
+          ? "bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700"
+          : "hover:bg-gray-100 dark:hover:bg-gray-700"
       }`}
       onClick={() => onSelect(c.id)}
     >
       <div className="flex-1 min-w-0">
-        <p className={`text-xs truncate leading-snug ${c.id === activeId ? "text-green-900 font-medium" : "text-gray-700"}`}>
+        <p className={`text-xs truncate leading-snug ${
+          c.id === activeId
+            ? "text-green-900 dark:text-green-300 font-medium"
+            : "text-gray-700 dark:text-gray-300"
+        }`}>
           {c.title}
         </p>
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
-        className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-sm flex-shrink-0 mt-0.5"
+        className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-400 transition-all text-sm flex-shrink-0 mt-0.5"
         title="Delete"
       >
         ✕
@@ -100,7 +106,7 @@ export default function Sidebar({ conversations, activeId, onSelect, onDelete, o
       <div className="flex-1 overflow-y-auto">
         <button
           onClick={() => setRecentChatsOpen((o) => !o)}
-          className="w-full flex items-center justify-between px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
+          className="w-full flex items-center justify-between px-4 py-2.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
         >
           <span>Recent Chats</span>
           <svg
@@ -120,7 +126,7 @@ export default function Sidebar({ conversations, activeId, onSelect, onDelete, o
             ) : (
               groups.map((group) => (
                 <div key={group.label}>
-                  <p className="px-4 pt-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <p className="px-4 pt-3 pb-1 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                     {group.label}
                   </p>
                   {group.items.map((c) => (
