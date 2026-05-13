@@ -89,22 +89,50 @@ function WorkoutItem({ workout, onDelete }: { workout: Workout; onDelete: (id: s
   const levelLabel = LEVEL_LABELS[workout.level] ?? workout.level;
   const equipLabel = EQUIPMENT_LABELS[workout.equipment] ?? workout.equipment;
   const [copied, setCopied] = useState(false);
+  const [shareError, setShareError] = useState(false);
   const [sharing, setSharing] = useState(false);
+
+  async function copyToClipboard(text: string): Promise<boolean> {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fallback for browsers that block clipboard API
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      } catch { return false; }
+    }
+  }
 
   async function handleShare(e: React.MouseEvent) {
     e.preventDefault();
     if (sharing) return;
     setSharing(true);
+    setShareError(false);
     try {
       const res = await fetch(`/api/workouts/${workout.id}/share`, { method: "POST" });
+      if (!res.ok) throw new Error("API error");
       const data = await res.json();
       if (data.shareUrl) {
-        await navigator.clipboard.writeText(data.shareUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        const ok = await copyToClipboard(data.shareUrl);
+        if (ok) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } else {
+          // Clipboard blocked — show the URL in a prompt so they can copy manually
+          window.prompt("Copy this link to share:", data.shareUrl);
+        }
       }
     } catch {
-      // silently fail
+      setShareError(true);
+      setTimeout(() => setShareError(false), 2000);
     } finally {
       setSharing(false);
     }
@@ -126,12 +154,14 @@ function WorkoutItem({ workout, onDelete }: { workout: Workout; onDelete: (id: s
             {new Date(workout.created_at).toLocaleDateString()}
           </span>
           {copied ? (
-            <span className="text-[10px] text-green-600 font-medium whitespace-nowrap">Link copied!</span>
+            <span className="text-[10px] text-green-600 dark:text-green-400 font-medium whitespace-nowrap">✓ Link copied!</span>
+          ) : shareError ? (
+            <span className="text-[10px] text-red-500 font-medium whitespace-nowrap">Failed, try again</span>
           ) : (
             <button
               onClick={handleShare}
               disabled={sharing}
-              className="text-gray-300 hover:text-green-500 transition-colors disabled:opacity-50"
+              className="text-gray-400 dark:text-gray-500 hover:text-green-500 dark:hover:text-green-400 transition-colors disabled:opacity-50"
               title="Copy share link"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
