@@ -84,36 +84,51 @@ User profile:
 
   // Custom request prompt
   if (customRequest) {
+    // Detect if user wants a multi-day split (e.g. "4 days", "3-day split", "5 day program")
+    const multiDayMatch = customRequest.match(/(\d+)\s*[\-–]?\s*day/i);
+    const numDays = multiDayMatch ? Math.min(parseInt(multiDayMatch[1]), 7) : 1;
+    const isMultiDay = numDays > 1;
+
+    const singleDaySchema = `{
+  "intro": "2-3 sentence overview",
+  "warmup": [{ "name": "...", "duration": "...", "instructions": ["step 1", "step 2", "step 3"] }],
+  "exercises": [{
+    "name": "...", "muscle_group": "...", "sets": "e.g. 3", "reps": "e.g. 10-12",
+    "rest": "e.g. 60 seconds", "instructions": ["step 1","step 2","step 3"],
+    "common_mistakes": ["mistake 1","mistake 2"], "youtube_query": "search query"
+  }],
+  "cooldown": [{ "name": "...", "duration": "...", "instructions": ["step 1","step 2"] }],
+  "pro_tips": ["tip 1","tip 2","tip 3"]
+}`;
+
+    const multiDaySchema = `{
+  "type": "multi_day",
+  "intro": "2-3 sentence overview of the full programme",
+  "days": [
+    {
+      "day": 1,
+      "label": "e.g. Chest & Triceps",
+      "warmup": [{ "name": "...", "duration": "...", "instructions": ["step 1","step 2","step 3"] }],
+      "exercises": [{
+        "name": "...", "muscle_group": "...", "sets": "e.g. 3", "reps": "e.g. 10-12",
+        "rest": "e.g. 60 seconds", "instructions": ["step 1","step 2","step 3"],
+        "common_mistakes": ["mistake 1","mistake 2"], "youtube_query": "search query"
+      }],
+      "cooldown": [{ "name": "...", "duration": "...", "instructions": ["step 1","step 2"] }]
+    }
+  ],
+  "pro_tips": ["tip 1","tip 2","tip 3"]
+}`;
+
     const customPrompt = `You are a certified personal trainer. Create a workout plan based on this request: "${customRequest}"
 ${profileContext}
 Important rules:
-- Generate exactly ONE session (45-60 minutes). If the user asked for a multi-day split, describe the full split programme in the "intro" field and label this session as Day 1.
-- Include 3-4 warm-up exercises, exactly 6 main exercises, and 3 cool-down stretches. No more.
-- Keep instructions to 3-4 steps each and common_mistakes to 2 items each to stay concise.
-
-Return ONLY a valid JSON object with this exact structure (no markdown, no extra text):
-{
-  "intro": "2-3 sentence overview of the workout approach",
-  "warmup": [
-    { "name": "Exercise name", "duration": "e.g. 45 seconds", "instructions": ["step 1", "step 2", "step 3"] }
-  ],
-  "exercises": [
-    {
-      "name": "Exercise name",
-      "muscle_group": "e.g. Chest, Triceps",
-      "sets": "e.g. 3",
-      "reps": "e.g. 10-12 reps or 40 seconds",
-      "rest": "e.g. 60 seconds",
-      "instructions": ["step 1", "step 2", "step 3", "step 4"],
-      "common_mistakes": ["mistake 1", "mistake 2"],
-      "youtube_query": "short search query for this exercise"
-    }
-  ],
-  "cooldown": [
-    { "name": "Stretch name", "duration": "e.g. 30 seconds each side", "instructions": ["step 1", "step 2"] }
-  ],
-  "pro_tips": ["tip 1", "tip 2", "tip 3"]
-}`;
+- Keep instructions to 3 steps each and common_mistakes to 2 items to stay concise.
+${isMultiDay ? `- Generate all ${numDays} days. Each day: 2-3 warm-up exercises, 5 main exercises, 2 cool-down stretches.
+- Return ONLY a valid JSON object using the multi-day schema below (no markdown, no extra text):
+${multiDaySchema}` : `- Generate exactly ONE session (45-60 minutes). Include 3 warm-up exercises, 6 main exercises, 3 cool-down stretches.
+- Return ONLY a valid JSON object using the schema below (no markdown, no extra text):
+${singleDaySchema}`}`;
 
     const customMessage = await client.messages.create({
       model: "claude-sonnet-4-5",

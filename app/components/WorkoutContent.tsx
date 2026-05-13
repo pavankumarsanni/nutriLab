@@ -9,9 +9,18 @@ type Exercise = {
   name: string; muscle_group: string; sets: string; reps: string;
   rest: string; instructions: string[]; common_mistakes: string[]; youtube_query: string;
 };
+type WorkoutDay = {
+  day: number; label: string;
+  warmup: WarmCoolItem[]; exercises: Exercise[]; cooldown: WarmCoolItem[];
+};
 type WorkoutPlan = {
-  intro: string; warmup: WarmCoolItem[]; exercises: Exercise[];
-  cooldown: WarmCoolItem[]; pro_tips: string[];
+  type?: "multi_day";
+  intro: string;
+  // single-day fields
+  warmup?: WarmCoolItem[]; exercises?: Exercise[]; cooldown?: WarmCoolItem[];
+  // multi-day field
+  days?: WorkoutDay[];
+  pro_tips: string[];
 };
 
 function parseContent(content: string): WorkoutPlan | null {
@@ -177,15 +186,10 @@ function RestTimerPanel({
   );
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
-export default function WorkoutContent({ content }: { content: string }) {
-  const plan = parseContent(content);
-
-  // Session timer
+// ── Shared timer hooks ────────────────────────────────────────────────────────
+function useWorkoutTimers() {
   const [sessionRunning, setSessionRunning] = useState(false);
   const [sessionSeconds, setSessionSeconds] = useState(0);
-
-  // Rest timer
   const [restVisible, setRestVisible] = useState(false);
   const [restSeconds, setRestSeconds] = useState(0);
   const [restTotal, setRestTotal] = useState(60);
@@ -193,30 +197,19 @@ export default function WorkoutContent({ content }: { content: string }) {
   const [restFinished, setRestFinished] = useState(false);
   const restRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Session timer tick
   useEffect(() => {
     if (!sessionRunning) return;
     const id = setInterval(() => setSessionSeconds((s) => s + 1), 1000);
     return () => clearInterval(id);
   }, [sessionRunning]);
 
-  // Rest timer tick
   const startRest = useCallback((seconds: number) => {
     if (restRef.current) clearInterval(restRef.current);
-    setRestTotal(seconds);
-    setRestSeconds(seconds);
-    setRestRunning(true);
-    setRestFinished(false);
-    setRestVisible(true);
+    setRestTotal(seconds); setRestSeconds(seconds);
+    setRestRunning(true); setRestFinished(false); setRestVisible(true);
     restRef.current = setInterval(() => {
       setRestSeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(restRef.current!);
-          setRestRunning(false);
-          setRestFinished(true);
-          playBeep();
-          return 0;
-        }
+        if (prev <= 1) { clearInterval(restRef.current!); setRestRunning(false); setRestFinished(true); playBeep(); return 0; }
         return prev - 1;
       });
     }, 1000);
@@ -224,17 +217,95 @@ export default function WorkoutContent({ content }: { content: string }) {
 
   const skipRest = useCallback(() => {
     if (restRef.current) clearInterval(restRef.current);
-    setRestRunning(false);
-    setRestFinished(false);
-    setRestVisible(false);
+    setRestRunning(false); setRestFinished(false); setRestVisible(false);
   }, []);
 
   const closeRest = useCallback(() => {
     if (restRef.current) clearInterval(restRef.current);
-    setRestRunning(false);
-    setRestFinished(false);
-    setRestVisible(false);
+    setRestRunning(false); setRestFinished(false); setRestVisible(false);
   }, []);
+
+  const toggleSession = useCallback(() => {
+    if (sessionRunning) { setSessionRunning(false); setSessionSeconds(0); }
+    else { unlockAudio(); setSessionRunning(true); }
+  }, [sessionRunning]);
+
+  const autoStartSession = useCallback(() => {
+    if (!sessionRunning) { unlockAudio(); setSessionRunning(true); }
+  }, [sessionRunning]);
+
+  return { sessionRunning, sessionSeconds, restVisible, restSeconds, restTotal, restRunning, restFinished, startRest, skipRest, closeRest, toggleSession, autoStartSession };
+}
+
+// ── Session toolbar ───────────────────────────────────────────────────────────
+function SessionBar({ sessionRunning, sessionSeconds, exerciseCount, totalSets, onToggle }: {
+  sessionRunning: boolean; sessionSeconds: number; exerciseCount: number; totalSets: number; onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-2xl px-4 py-3">
+      <div>
+        <p className="text-xs text-gray-400 dark:text-gray-500">Session time</p>
+        <p className={`text-xl font-bold tabular-nums ${sessionRunning ? "text-green-600 dark:text-green-400" : "text-gray-400 dark:text-gray-500"}`}>
+          {formatTime(sessionSeconds)}
+        </p>
+      </div>
+      <div className="text-right">
+        <p className="text-xs text-gray-400 dark:text-gray-500">{exerciseCount} exercises · {totalSets} sets</p>
+        <button
+          onClick={onToggle}
+          className={`mt-1 text-sm font-medium px-4 py-1.5 rounded-xl transition-colors ${
+            sessionRunning
+              ? "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-700"
+              : "bg-green-600 hover:bg-green-700 text-white"
+          }`}
+        >
+          {sessionRunning ? "⏹ End Workout" : "▶ Start Workout"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Single-day body ───────────────────────────────────────────────────────────
+function DayBody({ warmup, exercises, cooldown, sessionRunning, onSetDone }: {
+  warmup: WarmCoolItem[]; exercises: Exercise[]; cooldown: WarmCoolItem[];
+  sessionRunning: boolean; onSetDone: (restSecs: number) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {!sessionRunning && (
+        <p className="text-xs text-center text-gray-400 dark:text-gray-500">
+          👇 Expand an exercise · tick sets to log them · rest timer starts automatically
+        </p>
+      )}
+      {warmup?.length > 0 && (
+        <Section title="🌡️ Warm-Up" subtitle="Get your body ready">
+          <div className="space-y-2">{warmup.map((item, i) => <SimpleItem key={i} item={item} />)}</div>
+        </Section>
+      )}
+      {exercises?.length > 0 && (
+        <Section title="💪 Main Workout" subtitle={`${exercises.length} exercises`}>
+          <div className="space-y-3">
+            {exercises.map((ex, i) => (
+              <ExerciseCard key={i} exercise={ex} index={i + 1} defaultOpen={i === 0} onSetDone={onSetDone} />
+            ))}
+          </div>
+        </Section>
+      )}
+      {cooldown?.length > 0 && (
+        <Section title="🧘 Cool-Down" subtitle="Help your body recover">
+          <div className="space-y-2">{cooldown.map((item, i) => <SimpleItem key={i} item={item} />)}</div>
+        </Section>
+      )}
+    </div>
+  );
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
+export default function WorkoutContent({ content }: { content: string }) {
+  const plan = parseContent(content);
+  const timers = useWorkoutTimers();
+  const [activeDay, setActiveDay] = useState(0);
 
   // Fallback for old markdown-format workouts
   if (!plan) {
@@ -245,101 +316,102 @@ export default function WorkoutContent({ content }: { content: string }) {
     );
   }
 
-  const totalSets = plan.exercises.reduce((sum, ex) => sum + parseSets(ex.sets), 0);
+  const handleSetDone = (restSecs: number) => { timers.startRest(restSecs); timers.autoStartSession(); };
+
+  // ── Multi-day plan ──────────────────────────────────────────────────────────
+  if (plan.type === "multi_day" && plan.days?.length) {
+    const day = plan.days[activeDay];
+    const totalSets = day.exercises.reduce((s, ex) => s + parseSets(ex.sets), 0);
+
+    return (
+      <div className="space-y-4 pb-24">
+        <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{plan.intro}</p>
+
+        {/* Day tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {plan.days.map((d, i) => (
+            <button
+              key={i}
+              onClick={() => setActiveDay(i)}
+              className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-colors border ${
+                activeDay === i
+                  ? "bg-green-600 text-white border-green-600"
+                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-green-400"
+              }`}
+            >
+              <span className="block text-[10px] opacity-70 font-normal">Day {d.day}</span>
+              {d.label}
+            </button>
+          ))}
+        </div>
+
+        <SessionBar
+          sessionRunning={timers.sessionRunning} sessionSeconds={timers.sessionSeconds}
+          exerciseCount={day.exercises.length} totalSets={totalSets}
+          onToggle={timers.toggleSession}
+        />
+
+        <DayBody
+          warmup={day.warmup} exercises={day.exercises} cooldown={day.cooldown}
+          sessionRunning={timers.sessionRunning} onSetDone={handleSetDone}
+        />
+
+        {plan.pro_tips?.length > 0 && (
+          <Section title="💡 Pro Tips" subtitle="">
+            <ul className="space-y-1.5">
+              {plan.pro_tips.map((tip, i) => (
+                <li key={i} className="flex gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-green-500 mt-0.5 flex-shrink-0">✓</span><span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {timers.restVisible && (
+          <RestTimerPanel seconds={timers.restSeconds} total={timers.restTotal}
+            running={timers.restRunning} finished={timers.restFinished}
+            onStart={timers.startRest} onSkip={timers.skipRest} onClose={timers.closeRest} />
+        )}
+      </div>
+    );
+  }
+
+  // ── Single-day plan ─────────────────────────────────────────────────────────
+  const exercises = plan.exercises ?? [];
+  const totalSets = exercises.reduce((sum, ex) => sum + parseSets(ex.sets), 0);
 
   return (
     <div className="space-y-6 pb-24">
+      <SessionBar
+        sessionRunning={timers.sessionRunning} sessionSeconds={timers.sessionSeconds}
+        exerciseCount={exercises.length} totalSets={totalSets}
+        onToggle={timers.toggleSession}
+      />
 
-      {/* Session timer bar */}
-      <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-2xl px-4 py-3">
-        <div>
-          <p className="text-xs text-gray-400 dark:text-gray-500">Session time</p>
-          <p className={`text-xl font-bold tabular-nums ${sessionRunning ? "text-green-600 dark:text-green-400" : "text-gray-400 dark:text-gray-500"}`}>
-            {formatTime(sessionSeconds)}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-gray-400 dark:text-gray-500">{plan.exercises.length} exercises · {totalSets} sets</p>
-          <button
-            onClick={() => {
-              if (sessionRunning) { setSessionRunning(false); setSessionSeconds(0); }
-              else { unlockAudio(); setSessionRunning(true); }
-            }}
-            className={`mt-1 text-sm font-medium px-4 py-1.5 rounded-xl transition-colors ${
-              sessionRunning
-                ? "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-700"
-                : "bg-green-600 hover:bg-green-700 text-white"
-            }`}
-          >
-            {sessionRunning ? "⏹ End Workout" : "▶ Start Workout"}
-          </button>
-        </div>
-      </div>
-
-      {/* Quick-start hint */}
-      {!sessionRunning && (
-        <p className="text-xs text-center text-gray-400 dark:text-gray-500 -mt-3">
-          👇 Expand an exercise · tick sets to log them · rest timer starts automatically
-        </p>
-      )}
-
-      {/* Intro */}
       <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{plan.intro}</p>
 
-      {/* Warm-Up */}
-      {plan.warmup?.length > 0 && (
-        <Section title="🌡️ Warm-Up" subtitle="Get your body ready">
-          <div className="space-y-2">
-            {plan.warmup.map((item, i) => <SimpleItem key={i} item={item} />)}
-          </div>
-        </Section>
-      )}
+      <DayBody
+        warmup={plan.warmup ?? []} exercises={exercises} cooldown={plan.cooldown ?? []}
+        sessionRunning={timers.sessionRunning} onSetDone={handleSetDone}
+      />
 
-      {/* Main Exercises */}
-      {plan.exercises?.length > 0 && (
-        <Section title="💪 Main Workout" subtitle={`${plan.exercises.length} exercises`}>
-          <div className="space-y-3">
-            {plan.exercises.map((ex, i) => (
-              <ExerciseCard
-                key={i} exercise={ex} index={i + 1}
-                defaultOpen={i === 0}
-                onSetDone={(restSecs) => { startRest(restSecs); if (!sessionRunning) setSessionRunning(true); }}
-              />
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {/* Cool-Down */}
-      {plan.cooldown?.length > 0 && (
-        <Section title="🧘 Cool-Down" subtitle="Help your body recover">
-          <div className="space-y-2">
-            {plan.cooldown.map((item, i) => <SimpleItem key={i} item={item} />)}
-          </div>
-        </Section>
-      )}
-
-      {/* Pro Tips */}
       {plan.pro_tips?.length > 0 && (
         <Section title="💡 Pro Tips" subtitle="">
           <ul className="space-y-1.5">
             {plan.pro_tips.map((tip, i) => (
               <li key={i} className="flex gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <span className="text-green-500 mt-0.5 flex-shrink-0">✓</span>
-                <span>{tip}</span>
+                <span className="text-green-500 mt-0.5 flex-shrink-0">✓</span><span>{tip}</span>
               </li>
             ))}
           </ul>
         </Section>
       )}
 
-      {/* Floating rest timer */}
-      {restVisible && (
-        <RestTimerPanel
-          seconds={restSeconds} total={restTotal}
-          running={restRunning} finished={restFinished}
-          onStart={startRest} onSkip={skipRest} onClose={closeRest}
-        />
+      {timers.restVisible && (
+        <RestTimerPanel seconds={timers.restSeconds} total={timers.restTotal}
+          running={timers.restRunning} finished={timers.restFinished}
+          onStart={timers.startRest} onSkip={timers.skipRest} onClose={timers.closeRest} />
       )}
     </div>
   );
