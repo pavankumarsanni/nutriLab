@@ -10,6 +10,7 @@ type Props = {
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onNewChat: () => void;
+  onClose: () => void;
 };
 
 function groupConversations(conversations: Conversation[]): { label: string; items: Conversation[] }[] {
@@ -67,22 +68,31 @@ function ConversationItem({ c, activeId, onSelect, onDelete }: {
   );
 }
 
-export default function Sidebar({ conversations, activeId, onSelect, onDelete, onNewChat }: Props) {
+export default function Sidebar({ conversations, activeId, onSelect, onDelete, onNewChat, onClose }: Props) {
   const [recentChatsOpen, setRecentChatsOpen] = useState(true);
   const groups = groupConversations(conversations);
 
   return (
-    <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
-      {/* New Chat button */}
-      <div className="px-3 pt-3 pb-2 flex-shrink-0">
+    <aside className="w-64 flex-shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
+      {/* New Chat + collapse arrow */}
+      <div className="px-3 pt-3 pb-2 flex-shrink-0 flex gap-2">
         <button
           onClick={onNewChat}
-          className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
             <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
           </svg>
           New Chat
+        </button>
+        <button
+          onClick={onClose}
+          title="Close sidebar"
+          className="flex-shrink-0 flex items-center justify-center w-10 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+            <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+          </svg>
         </button>
       </div>
 
