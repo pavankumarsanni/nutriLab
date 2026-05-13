@@ -84,26 +84,26 @@ User profile:
 
   // Custom request prompt
   if (customRequest) {
-    // Detect multi-day requests: "4 days", "3-day split", "5 sessions", "split into 4"
-    const dayMatch = customRequest.match(/(\d+)\s*[\-–]?\s*(?:day|session)/i);
-    const splitMatch = !dayMatch && customRequest.match(/split\s+(?:into\s+)?(\d+)/i);
-    const multiDayMatch = dayMatch || splitMatch;
-    const numDays = multiDayMatch ? Math.min(parseInt(multiDayMatch[1]), 7) : 1;
-    const isMultiDay = numDays > 1;
+    const customPrompt = `You are a certified personal trainer. Create a workout plan based on this request: "${customRequest}"
+${profileContext}
+IMPORTANT — choose the correct JSON schema based on the request:
 
-    const singleDaySchema = `{
+• If the request mentions multiple days, sessions, a split, a weekly plan, or any phrasing that implies more than one workout session → use the MULTI-DAY schema.
+• Otherwise → use the SINGLE-DAY schema.
+
+Keep instructions to 3 steps each and common_mistakes to 2 items. Return ONLY a valid JSON object (no markdown, no extra text).
+
+SINGLE-DAY schema (one session, 45-60 min):
+{
   "intro": "2-3 sentence overview",
-  "warmup": [{ "name": "...", "duration": "...", "instructions": ["step 1", "step 2", "step 3"] }],
-  "exercises": [{
-    "name": "...", "muscle_group": "...", "sets": "e.g. 3", "reps": "e.g. 10-12",
-    "rest": "e.g. 60 seconds", "instructions": ["step 1","step 2","step 3"],
-    "common_mistakes": ["mistake 1","mistake 2"], "youtube_query": "search query"
-  }],
+  "warmup": [{ "name": "...", "duration": "...", "instructions": ["step 1","step 2","step 3"] }],
+  "exercises": [{ "name": "...", "muscle_group": "...", "sets": "3", "reps": "10-12", "rest": "60 seconds", "instructions": ["step 1","step 2","step 3"], "common_mistakes": ["mistake 1","mistake 2"], "youtube_query": "search query" }],
   "cooldown": [{ "name": "...", "duration": "...", "instructions": ["step 1","step 2"] }],
   "pro_tips": ["tip 1","tip 2","tip 3"]
-}`;
+}
 
-    const multiDaySchema = `{
+MULTI-DAY schema (multiple sessions — include ALL days, each 45-60 min, max 5 exercises per day):
+{
   "type": "multi_day",
   "intro": "2-3 sentence overview of the full programme",
   "days": [
@@ -111,30 +111,16 @@ User profile:
       "day": 1,
       "label": "e.g. Chest & Triceps",
       "warmup": [{ "name": "...", "duration": "...", "instructions": ["step 1","step 2","step 3"] }],
-      "exercises": [{
-        "name": "...", "muscle_group": "...", "sets": "e.g. 3", "reps": "e.g. 10-12",
-        "rest": "e.g. 60 seconds", "instructions": ["step 1","step 2","step 3"],
-        "common_mistakes": ["mistake 1","mistake 2"], "youtube_query": "search query"
-      }],
+      "exercises": [{ "name": "...", "muscle_group": "...", "sets": "3", "reps": "10-12", "rest": "60 seconds", "instructions": ["step 1","step 2","step 3"], "common_mistakes": ["mistake 1","mistake 2"], "youtube_query": "search query" }],
       "cooldown": [{ "name": "...", "duration": "...", "instructions": ["step 1","step 2"] }]
     }
   ],
   "pro_tips": ["tip 1","tip 2","tip 3"]
 }`;
 
-    const customPrompt = `You are a certified personal trainer. Create a workout plan based on this request: "${customRequest}"
-${profileContext}
-Important rules:
-- Keep instructions to 3 steps each and common_mistakes to 2 items to stay concise.
-${isMultiDay ? `- Generate all ${numDays} days. Each day: 2-3 warm-up exercises, 5 main exercises, 2 cool-down stretches.
-- Return ONLY a valid JSON object using the multi-day schema below (no markdown, no extra text):
-${multiDaySchema}` : `- Generate exactly ONE session (45-60 minutes). Include 3 warm-up exercises, 6 main exercises, 3 cool-down stretches.
-- Return ONLY a valid JSON object using the schema below (no markdown, no extra text):
-${singleDaySchema}`}`;
-
     const customMessage = await client.messages.create({
       model: "claude-sonnet-4-5",
-      max_tokens: isMultiDay ? 8000 : 6000,
+      max_tokens: 8000,
       messages: [{ role: "user", content: customPrompt }],
     });
 
