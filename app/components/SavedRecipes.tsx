@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -40,6 +41,28 @@ export default function SavedRecipes({ recipes, onDelete }: Props) {
 }
 
 function RecipeItem({ recipe, onDelete }: { recipe: Recipe; onDelete: (id: string) => void }) {
+  const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
+
+  async function handleShare(e: React.MouseEvent) {
+    e.preventDefault();
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}/share`, { method: "POST" });
+      const data = await res.json();
+      if (data.shareUrl) {
+        await navigator.clipboard.writeText(data.shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setSharing(false);
+    }
+  }
+
   return (
     <details className="group py-3">
       <summary className="flex items-center justify-between cursor-pointer list-none">
@@ -51,6 +74,21 @@ function RecipeItem({ recipe, onDelete }: { recipe: Recipe; onDelete: (id: strin
           <span className="text-[10px] text-gray-400 dark:text-gray-500">
             {new Date(recipe.created_at).toLocaleDateString()}
           </span>
+          {copied ? (
+            <span className="text-[10px] text-green-600 font-medium whitespace-nowrap">Link copied!</span>
+          ) : (
+            <button
+              onClick={handleShare}
+              disabled={sharing}
+              className="text-gray-300 hover:text-green-500 transition-colors disabled:opacity-50"
+              title="Copy share link"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z" />
+                <path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z" />
+              </svg>
+            </button>
+          )}
           <button
             onClick={(e) => { e.preventDefault(); onDelete(recipe.id); }}
             className="text-gray-300 hover:text-red-400 transition-colors text-sm"

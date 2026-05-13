@@ -138,6 +138,9 @@ export async function runMigrations() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_food_logs_user_date ON food_logs(user_id, logged_date DESC);
+
+      ALTER TABLE workouts ADD COLUMN IF NOT EXISTS share_id TEXT UNIQUE;
+      ALTER TABLE saved_recipes ADD COLUMN IF NOT EXISTS share_id TEXT UNIQUE;
     `);
   } finally {
     client.release();
@@ -397,4 +400,104 @@ export async function saveMessage(id: string, conversationId: string, role: stri
     `UPDATE conversations SET updated_at = NOW() WHERE id = $1`,
     [conversationId]
   );
+}
+
+// ── Sharing: Workouts ─────────────────────────────────────────────────────────
+
+export type WorkoutRow = {
+  id: string;
+  user_id?: string;
+  title: string;
+  goal: string;
+  target: string;
+  level: string;
+  equipment: string;
+  duration: number;
+  content: string;
+  created_at: string;
+  share_id?: string | null;
+};
+
+export async function shareWorkout(workoutId: string, userId: string): Promise<string> {
+  // Check if already shared
+  const existing = await getPool().query(
+    `SELECT share_id FROM workouts WHERE id = $1 AND user_id = $2`,
+    [workoutId, userId]
+  );
+  if (existing.rows[0]?.share_id) return existing.rows[0].share_id as string;
+
+  const shareId = crypto.randomUUID();
+  await getPool().query(
+    `UPDATE workouts SET share_id = $1 WHERE id = $2 AND user_id = $3`,
+    [shareId, workoutId, userId]
+  );
+  return shareId;
+}
+
+export async function getWorkoutByShareId(shareId: string): Promise<WorkoutRow | null> {
+  const result = await getPool().query(
+    `SELECT id, title, goal, target, level, equipment, duration, content, created_at, share_id
+     FROM workouts WHERE share_id = $1`,
+    [shareId]
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function copySharedWorkout(shareId: string, userId: string): Promise<string> {
+  const source = await getWorkoutByShareId(shareId);
+  if (!source) throw new Error("Shared workout not found");
+
+  const newId = crypto.randomUUID();
+  await getPool().query(
+    `INSERT INTO workouts (id, user_id, title, goal, target, level, equipment, duration, content)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [newId, userId, source.title, source.goal, source.target, source.level, source.equipment, source.duration, source.content]
+  );
+  return newId;
+}
+
+// ── Sharing: Recipes ──────────────────────────────────────────────────────────
+
+export type RecipeRow = {
+  id: string;
+  user_id?: string;
+  title: string;
+  content: string;
+  created_at: string;
+  share_id?: string | null;
+};
+
+export async function shareRecipe(recipeId: string, userId: string): Promise<string> {
+  const existing = await getPool().query(
+    `SELECT share_id FROM saved_recipes WHERE id = $1 AND user_id = $2`,
+    [recipeId, userId]
+  );
+  if (existing.rows[0]?.share_id) return existing.rows[0].share_id as string;
+
+  const shareId = crypto.randomUUID();
+  await getPool().query(
+    `UPDATE saved_recipes SET share_id = $1 WHERE id = $2 AND user_id = $3`,
+    [shareId, recipeId, userId]
+  );
+  return shareId;
+}
+
+export async function getRecipeByShareId(shareId: string): Promise<RecipeRow | null> {
+  const result = await getPool().query(
+    `SELECT id, title, content, created_at, share_id FROM saved_recipes WHERE share_id = $1`,
+    [shareId]
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function copySharedRecipe(shareId: string, userId: string): Promise<string> {
+  const source = await getRecipeByShareId(shareId);
+  if (!source) throw new Error("Shared recipe not found");
+
+  const newId = crypto.randomUUID();
+  await getPool().query(
+    `INSERT INTO saved_recipes (id, user_id, title, content) VALUES ($1, $2, $3, $4)`,
+    [newId, userId, source.title, source.content]
+  );
+  return newId;
 }
