@@ -84,8 +84,10 @@ User profile:
 
   // Custom request prompt
   if (customRequest) {
-    // Detect if user wants a multi-day split (e.g. "4 days", "3-day split", "5 day program")
-    const multiDayMatch = customRequest.match(/(\d+)\s*[\-–]?\s*day/i);
+    // Detect multi-day requests: "4 days", "3-day split", "5 sessions", "split into 4"
+    const dayMatch = customRequest.match(/(\d+)\s*[\-–]?\s*(?:day|session)/i);
+    const splitMatch = !dayMatch && customRequest.match(/split\s+(?:into\s+)?(\d+)/i);
+    const multiDayMatch = dayMatch || splitMatch;
     const numDays = multiDayMatch ? Math.min(parseInt(multiDayMatch[1]), 7) : 1;
     const isMultiDay = numDays > 1;
 
@@ -132,7 +134,7 @@ ${singleDaySchema}`}`;
 
     const customMessage = await client.messages.create({
       model: "claude-sonnet-4-5",
-      max_tokens: 6000,
+      max_tokens: isMultiDay ? 8000 : 6000,
       messages: [{ role: "user", content: customPrompt }],
     });
 

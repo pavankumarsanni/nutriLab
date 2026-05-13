@@ -318,8 +318,8 @@ export default function WorkoutContent({ content }: { content: string }) {
 
   const handleSetDone = (restSecs: number) => { timers.startRest(restSecs); timers.autoStartSession(); };
 
-  // ── Multi-day plan ──────────────────────────────────────────────────────────
-  if (plan.type === "multi_day" && plan.days?.length) {
+  // ── Multi-day plan — detect by presence of days[] array ────────────────────
+  if (plan.days && plan.days.length > 0) {
     const day = plan.days[activeDay];
     const totalSets = day.exercises.reduce((s, ex) => s + parseSets(ex.sets), 0);
 
