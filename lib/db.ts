@@ -188,6 +188,13 @@ export async function deleteMealPlan(id: string, userId: string) {
   );
 }
 
+export async function renameMealPlan(id: string, userId: string, title: string) {
+  await getPool().query(
+    `UPDATE meal_plans SET title = $1 WHERE id = $2 AND user_id = $3`,
+    [title.trim(), id, userId]
+  );
+}
+
 // ── Conversations ─────────────────────────────────────────────────────────────
 
 export async function getConversations(userId: string) {

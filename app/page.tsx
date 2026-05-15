@@ -174,6 +174,10 @@ export default function Home() {
     setMealPlans((prev) => prev.filter((p) => p.id !== id));
   };
 
+  const handleRenameMealPlan = (id: string, title: string) => {
+    setMealPlans((prev) => prev.map((p) => p.id === id ? { ...p, title } : p));
+  };
+
   const handleRenameRecipe = (id: string, title: string) => {
     setSavedRecipes((prev) => prev.map((r) => r.id === id ? { ...r, title } : r));
   };
@@ -367,16 +371,16 @@ export default function Home() {
               {/* Sign out */}
               {confirmSignOut ? (
                 <div className="px-4 py-2">
-                  <p className="text-xs text-gray-600 mb-2">Sure you want to sign out?</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">Sure you want to sign out?</p>
                   <div className="flex gap-2">
                     <button onClick={() => signOut()} className="text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg px-3 py-1.5 transition-colors">Yes, sign out</button>
-                    <button onClick={() => setConfirmSignOut(false)} className="text-xs text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
+                    <button onClick={() => setConfirmSignOut(false)} className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">Cancel</button>
                   </div>
                 </div>
               ) : (
                 <button
                   onClick={() => { setConfirmSignOut(true); setConfirmDelete(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   🚪 Sign out
                 </button>
@@ -452,7 +456,7 @@ export default function Home() {
         <SavedRecipes recipes={savedRecipes} onDelete={handleDeleteRecipe} onRename={handleRenameRecipe} />
       )}
       {activeTab === "meal-plans" && (
-        <SavedPlans plans={mealPlans} onDelete={handleDeleteMealPlan} onGenerate={() => setShowMealPlanModal(true)} />
+        <SavedPlans plans={mealPlans} onDelete={handleDeleteMealPlan} onRename={handleRenameMealPlan} onGenerate={() => setShowMealPlanModal(true)} />
       )}
       {activeTab === "workouts" && (
         <SavedWorkouts workouts={workouts} onDelete={handleDeleteWorkout} onRename={handleRenameWorkout} onGenerate={() => setShowWorkoutModal(true)} />
