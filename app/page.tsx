@@ -136,6 +136,10 @@ export default function Home() {
     setWorkouts((prev) => prev.filter((w) => w.id !== id));
   };
 
+  const handleRenameWorkout = (id: string, title: string) => {
+    setWorkouts((prev) => prev.map((w) => w.id === id ? { ...w, title } : w));
+  };
+
   const fetchUserProfile = async () => {
     const res = await fetch("/api/user-profile");
     const data = await res.json();
@@ -168,6 +172,10 @@ export default function Home() {
   const handleDeleteMealPlan = async (id: string) => {
     await fetch(`/api/meal-plans/${id}`, { method: "DELETE" });
     setMealPlans((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleRenameRecipe = (id: string, title: string) => {
+    setSavedRecipes((prev) => prev.map((r) => r.id === id ? { ...r, title } : r));
   };
 
   const handleDeleteRecipe = async (id: string) => {
@@ -441,13 +449,13 @@ export default function Home() {
 
       {/* Tab content */}
       {activeTab === "recipes" && (
-        <SavedRecipes recipes={savedRecipes} onDelete={handleDeleteRecipe} />
+        <SavedRecipes recipes={savedRecipes} onDelete={handleDeleteRecipe} onRename={handleRenameRecipe} />
       )}
       {activeTab === "meal-plans" && (
         <SavedPlans plans={mealPlans} onDelete={handleDeleteMealPlan} onGenerate={() => setShowMealPlanModal(true)} />
       )}
       {activeTab === "workouts" && (
-        <SavedWorkouts workouts={workouts} onDelete={handleDeleteWorkout} onGenerate={() => setShowWorkoutModal(true)} />
+        <SavedWorkouts workouts={workouts} onDelete={handleDeleteWorkout} onRename={handleRenameWorkout} onGenerate={() => setShowWorkoutModal(true)} />
       )}
       {activeTab === "progress" && (
         <ProgressDashboard

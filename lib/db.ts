@@ -240,6 +240,13 @@ export async function deleteRecipe(id: string, userId: string) {
   );
 }
 
+export async function renameRecipe(id: string, userId: string, title: string) {
+  await getPool().query(
+    `UPDATE saved_recipes SET title = $1 WHERE id = $2 AND user_id = $3`,
+    [title.trim(), id, userId]
+  );
+}
+
 // ── Account ───────────────────────────────────────────────────────────────────
 
 export async function deleteUserAccount(userId: string) {
@@ -348,6 +355,13 @@ export async function deleteWorkout(id: string, userId: string) {
   await getPool().query(
     `DELETE FROM workouts WHERE id = $1 AND user_id = $2`,
     [id, userId]
+  );
+}
+
+export async function renameWorkout(id: string, userId: string, title: string) {
+  await getPool().query(
+    `UPDATE workouts SET title = $1 WHERE id = $2 AND user_id = $3`,
+    [title.trim(), id, userId]
   );
 }
 
