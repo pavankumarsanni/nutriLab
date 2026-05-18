@@ -9,6 +9,7 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 type Props = {
   onClose: () => void;
   onSaved: (workout: Workout & { id: string; goal: string; target: string; level: string; equipment: string; duration: number; created_at: string }) => void;
+  initialCustomRequest?: string;
 };
 
 const GOALS = [
@@ -53,10 +54,10 @@ const DURATIONS = [
   { value: 60, label: "60 min", desc: "Full" },
 ];
 
-export default function WorkoutModal({ onClose, onSaved }: Props) {
+export default function WorkoutModal({ onClose, onSaved, initialCustomRequest = "" }: Props) {
   const [step, setStep] = useState<"form" | "generating" | "result">("form");
-  const [mode, setMode] = useState<"presets" | "custom">("presets");
-  const [customRequest, setCustomRequest] = useState("");
+  const [mode, setMode] = useState<"presets" | "custom">(initialCustomRequest ? "custom" : "presets");
+  const [customRequest, setCustomRequest] = useState(initialCustomRequest);
   const [goal, setGoal] = useState("general");
   const [target, setTarget] = useState("full_body");
   const [level, setLevel] = useState("beginner");

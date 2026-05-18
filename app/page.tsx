@@ -10,6 +10,7 @@ import MealPlanModal from "./components/MealPlanModal";
 import SavedPlans from "./components/SavedPlans";
 import WorkoutModal from "./components/WorkoutModal";
 import SavedWorkouts from "./components/SavedWorkouts";
+import BodyAssessmentModal from "./components/BodyAssessmentModal";
 import ProfileSetupModal from "./components/ProfileSetupModal";
 import ProgressDashboard from "./components/ProgressDashboard";
 import { useTheme } from "./components/ThemeProvider";
@@ -58,6 +59,8 @@ export default function Home() {
   const [showMealPlanModal, setShowMealPlanModal] = useState(false);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
+  const [showBodyAssessment, setShowBodyAssessment] = useState(false);
+  const [workoutInitialRequest, setWorkoutInitialRequest] = useState("");
   const [userProfile, setUserProfile] = useState<UserProfile | null | undefined>(undefined);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
@@ -302,8 +305,19 @@ export default function Home() {
       )}
       {showWorkoutModal && (
         <WorkoutModal
-          onClose={() => setShowWorkoutModal(false)}
+          onClose={() => { setShowWorkoutModal(false); setWorkoutInitialRequest(""); }}
           onSaved={(workout) => { handleWorkoutSaved(workout); }}
+          initialCustomRequest={workoutInitialRequest}
+        />
+      )}
+      {showBodyAssessment && (
+        <BodyAssessmentModal
+          onClose={() => setShowBodyAssessment(false)}
+          onGenerateWorkout={(prompt) => {
+            setWorkoutInitialRequest(prompt);
+            setShowBodyAssessment(false);
+            setShowWorkoutModal(true);
+          }}
         />
       )}
       {showProfileModal && (
@@ -459,7 +473,25 @@ export default function Home() {
         <SavedPlans plans={mealPlans} onDelete={handleDeleteMealPlan} onRename={handleRenameMealPlan} onGenerate={() => setShowMealPlanModal(true)} />
       )}
       {activeTab === "workouts" && (
-        <SavedWorkouts workouts={workouts} onDelete={handleDeleteWorkout} onRename={handleRenameWorkout} onGenerate={() => setShowWorkoutModal(true)} />
+        <>
+          {/* Body Assessment entry card */}
+          <div className="px-4 pt-4 max-w-2xl mx-auto w-full">
+            <button
+              onClick={() => setShowBodyAssessment(true)}
+              className="w-full flex items-center gap-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-700 rounded-2xl px-4 py-3 hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-900/30 dark:hover:to-blue-900/30 transition-all"
+            >
+              <span className="text-2xl">📸</span>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Body Assessment</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Get AI analysis of your current physique and a personalised plan</p>
+              </div>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-400 ml-auto flex-shrink-0">
+                <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+          <SavedWorkouts workouts={workouts} onDelete={handleDeleteWorkout} onRename={handleRenameWorkout} onGenerate={() => setShowWorkoutModal(true)} />
+        </>
       )}
       {activeTab === "progress" && (
         <ProgressDashboard
