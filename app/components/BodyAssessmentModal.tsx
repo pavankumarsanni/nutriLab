@@ -21,9 +21,13 @@ type Props = {
 
 const PHYSIQUE_OPTIONS = [
   { value: "Slim", label: "🦴 Slim", desc: "Low body fat, want to add size" },
+  { value: "Skinny Fat", label: "🫠 Skinny Fat", desc: "Looks slim but low muscle, soft midsection" },
   { value: "Average", label: "📊 Average", desc: "Moderate build, mixed goals" },
   { value: "Athletic", label: "💪 Athletic", desc: "Active, want to refine & build" },
+  { value: "Muscular", label: "🏋️ Muscular", desc: "Well built, want to maintain or sharpen" },
   { value: "Stocky", label: "📈 Stocky", desc: "Heavier build, want to lean out" },
+  { value: "Overweight", label: "⚖️ Overweight", desc: "Significant fat to lose, building from scratch" },
+  { value: "Ectomorph", label: "🪶 Ectomorph", desc: "Very lean, fast metabolism, hard gainer" },
 ];
 
 const GOAL_OPTIONS = [
@@ -51,6 +55,7 @@ export default function BodyAssessmentModal({ onClose, onGenerateWorkout }: Prop
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [selectedPhysique, setSelectedPhysique] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
+  const [selfDescription, setSelfDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [error, setError] = useState("");
@@ -82,9 +87,13 @@ export default function BodyAssessmentModal({ onClose, onGenerateWorkout }: Prop
         });
         body.image_base64 = base64;
         body.media_type = photoFile.type;
-      } else if (selectedPhysique) {
-        body.current_physique = selectedPhysique;
       }
+
+      // Combine card selection + free text if present
+      const descParts: string[] = [];
+      if (selectedPhysique) descParts.push(selectedPhysique);
+      if (selfDescription.trim()) descParts.push(selfDescription.trim());
+      if (descParts.length > 0) body.current_physique = descParts.join(" — ");
 
       const res = await fetch("/api/body-assessment", {
         method: "POST",
@@ -106,13 +115,14 @@ export default function BodyAssessmentModal({ onClose, onGenerateWorkout }: Prop
     setPhotoFile(null);
     setPhotoPreview(null);
     setSelectedPhysique(null);
+    setSelfDescription("");
     setSelectedGoal(null);
     setResult(null);
     setError("");
     setLoading(false);
   };
 
-  const canProceedStep1 = photoFile !== null || selectedPhysique !== null;
+  const canProceedStep1 = photoFile !== null || selectedPhysique !== null || selfDescription.trim().length > 0;
   const canProceedStep2 = selectedGoal !== null;
 
   return (
@@ -227,6 +237,23 @@ export default function BodyAssessmentModal({ onClose, onGenerateWorkout }: Prop
                   <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{opt.desc}</div>
                 </button>
               ))}
+            </div>
+
+            {/* Free-text description */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+                ✍️ Or describe yourself in your own words <span className="text-gray-400">(optional)</span>
+              </label>
+              <textarea
+                value={selfDescription}
+                onChange={(e) => setSelfDescription(e.target.value)}
+                placeholder="e.g. I'm 28M, around 80kg, I have some belly fat but my arms are thin. I've been inactive for 2 years and want to get back in shape..."
+                rows={3}
+                className="w-full text-sm text-gray-800 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 resize-none outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500 transition-all"
+              />
+              {selfDescription.trim().length > 0 && (
+                <p className="text-[11px] text-green-600 dark:text-green-400 mt-1">✓ Description added — you can skip the photo & cards above</p>
+              )}
             </div>
           </div>
         )}
