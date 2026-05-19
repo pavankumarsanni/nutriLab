@@ -83,7 +83,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to parse AI response. Please try again." }, { status: 500 });
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+    const raw = err instanceof Error ? err.message : String(err);
+    // Surface a clean message for common Anthropic API errors
+    let message = "Something went wrong. Please try again.";
+    if (raw.includes("credit") || raw.includes("billing") || raw.includes("balance")) {
+      message = "API credits are low. Please top up your Anthropic account to continue.";
+    } else if (raw.includes("rate") || raw.includes("429")) {
+      message = "Too many requests. Please wait a moment and try again.";
+    } else if (raw.includes("401") || raw.includes("authentication")) {
+      message = "API authentication error. Please check your API key.";
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
