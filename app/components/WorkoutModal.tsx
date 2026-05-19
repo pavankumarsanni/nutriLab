@@ -9,6 +9,7 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 type Props = {
   onClose: () => void;
   onSaved: (workout: Workout & { id: string; goal: string; target: string; level: string; equipment: string; duration: number; created_at: string }) => void;
+  initialCustomRequest?: string;
 };
 
 const GOALS = [
@@ -53,10 +54,10 @@ const DURATIONS = [
   { value: 60, label: "60 min", desc: "Full" },
 ];
 
-export default function WorkoutModal({ onClose, onSaved }: Props) {
+export default function WorkoutModal({ onClose, onSaved, initialCustomRequest = "" }: Props) {
   const [step, setStep] = useState<"form" | "generating" | "result">("form");
-  const [mode, setMode] = useState<"presets" | "custom">("presets");
-  const [customRequest, setCustomRequest] = useState("");
+  const [mode, setMode] = useState<"presets" | "custom">(initialCustomRequest ? "custom" : "presets");
+  const [customRequest, setCustomRequest] = useState(initialCustomRequest);
   const [goal, setGoal] = useState("general");
   const [target, setTarget] = useState("full_body");
   const [level, setLevel] = useState("beginner");
@@ -104,9 +105,10 @@ export default function WorkoutModal({ onClose, onSaved }: Props) {
     if (!workout || saving || saved) return;
     setSaving(true);
     try {
+      // Pass the already-generated content directly — no need to re-run Claude
       const body = mode === "custom"
-        ? { customRequest: customRequest.trim(), save: true }
-        : { goal, target, level, equipment, duration, save: true };
+        ? { customRequest: customRequest.trim(), existingContent: workout.content, existingTitle: workout.title, save: true }
+        : { goal, target, level, equipment, duration, existingContent: workout.content, existingTitle: workout.title, save: true };
       const res = await fetch("/api/workouts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

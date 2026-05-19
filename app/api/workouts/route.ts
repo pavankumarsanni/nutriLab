@@ -59,7 +59,19 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { goal, target, level, equipment, duration, save, customRequest } = await req.json();
+  const { goal, target, level, equipment, duration, save, customRequest, existingContent, existingTitle } = await req.json();
+
+  // Fast-save path: content already generated, just persist it
+  if (save && existingContent && existingTitle) {
+    const id = crypto.randomUUID();
+    const g = customRequest ? "custom" : (goal ?? "custom");
+    const t = customRequest ? "custom" : (target ?? "custom");
+    const l = customRequest ? "custom" : (level ?? "custom");
+    const eq = customRequest ? "custom" : (equipment ?? "custom");
+    const dur = customRequest ? 0 : (duration ?? 0);
+    await saveWorkout(id, session.user.id, existingTitle, g, t, l, eq, dur, existingContent);
+    return NextResponse.json({ id, title: existingTitle, content: existingContent });
+  }
 
   // Custom request mode — skip preset validation
   if (!customRequest && (!goal || !target || !level || !equipment || !duration)) {
@@ -86,33 +98,41 @@ User profile:
   if (customRequest) {
     const customPrompt = `You are a certified personal trainer. Create a workout plan based on this request: "${customRequest}"
 ${profileContext}
-Return ONLY a valid JSON object with this exact structure (no markdown, no extra text):
+IMPORTANT — choose the correct JSON schema based on the request:
+
+• If the request mentions multiple days, sessions, a split, a weekly plan, or any phrasing that implies more than one workout session → use the MULTI-DAY schema.
+• Otherwise → use the SINGLE-DAY schema.
+
+Keep instructions to 3 steps each and common_mistakes to 2 items. Return ONLY a valid JSON object (no markdown, no extra text).
+
+SINGLE-DAY schema (one session, 45-60 min):
 {
-  "intro": "2-3 sentence overview of the workout approach",
-  "warmup": [
-    { "name": "Exercise name", "duration": "e.g. 45 seconds", "instructions": ["step 1", "step 2", "step 3"] }
-  ],
-  "exercises": [
+  "intro": "2-3 sentence overview",
+  "warmup": [{ "name": "...", "duration": "...", "instructions": ["step 1","step 2","step 3"] }],
+  "exercises": [{ "name": "...", "muscle_group": "...", "sets": "3", "reps": "10-12", "rest": "60 seconds", "instructions": ["step 1","step 2","step 3"], "common_mistakes": ["mistake 1","mistake 2"], "youtube_query": "search query" }],
+  "cooldown": [{ "name": "...", "duration": "...", "instructions": ["step 1","step 2"] }],
+  "pro_tips": ["tip 1","tip 2","tip 3"]
+}
+
+MULTI-DAY schema (multiple sessions — include ALL days, each 45-60 min, max 5 exercises per day):
+{
+  "type": "multi_day",
+  "intro": "2-3 sentence overview of the full programme",
+  "days": [
     {
-      "name": "Exercise name",
-      "muscle_group": "e.g. Chest, Triceps",
-      "sets": "e.g. 3",
-      "reps": "e.g. 10-12 reps or 40 seconds",
-      "rest": "e.g. 60 seconds",
-      "instructions": ["step 1", "step 2", "step 3", "step 4"],
-      "common_mistakes": ["mistake 1", "mistake 2"],
-      "youtube_query": "short search query for this exercise"
+      "day": 1,
+      "label": "e.g. Chest & Triceps",
+      "warmup": [{ "name": "...", "duration": "...", "instructions": ["step 1","step 2","step 3"] }],
+      "exercises": [{ "name": "...", "muscle_group": "...", "sets": "3", "reps": "10-12", "rest": "60 seconds", "instructions": ["step 1","step 2","step 3"], "common_mistakes": ["mistake 1","mistake 2"], "youtube_query": "search query" }],
+      "cooldown": [{ "name": "...", "duration": "...", "instructions": ["step 1","step 2"] }]
     }
   ],
-  "cooldown": [
-    { "name": "Stretch name", "duration": "e.g. 30 seconds each side", "instructions": ["step 1", "step 2"] }
-  ],
-  "pro_tips": ["tip 1", "tip 2", "tip 3"]
+  "pro_tips": ["tip 1","tip 2","tip 3"]
 }`;
 
     const customMessage = await client.messages.create({
       model: "claude-sonnet-4-5",
-      max_tokens: 3000,
+      max_tokens: 8000,
       messages: [{ role: "user", content: customPrompt }],
     });
 
@@ -172,7 +192,7 @@ Include 3-4 warm-up exercises, 5-7 main exercises, and 3-4 cool-down stretches. 
 
   const message = await client.messages.create({
     model: "claude-sonnet-4-5",
-    max_tokens: 3000,
+    max_tokens: 6000,
     messages: [{ role: "user", content: prompt }],
   });
 

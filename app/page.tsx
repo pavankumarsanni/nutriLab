@@ -10,6 +10,7 @@ import MealPlanModal from "./components/MealPlanModal";
 import SavedPlans from "./components/SavedPlans";
 import WorkoutModal from "./components/WorkoutModal";
 import SavedWorkouts from "./components/SavedWorkouts";
+import BodyAssessmentModal from "./components/BodyAssessmentModal";
 import ProfileSetupModal from "./components/ProfileSetupModal";
 import ProgressDashboard from "./components/ProgressDashboard";
 import { useTheme } from "./components/ThemeProvider";
@@ -58,6 +59,8 @@ export default function Home() {
   const [showMealPlanModal, setShowMealPlanModal] = useState(false);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
+  const [showBodyAssessment, setShowBodyAssessment] = useState(false);
+  const [workoutInitialRequest, setWorkoutInitialRequest] = useState("");
   const [userProfile, setUserProfile] = useState<UserProfile | null | undefined>(undefined);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
@@ -136,6 +139,10 @@ export default function Home() {
     setWorkouts((prev) => prev.filter((w) => w.id !== id));
   };
 
+  const handleRenameWorkout = (id: string, title: string) => {
+    setWorkouts((prev) => prev.map((w) => w.id === id ? { ...w, title } : w));
+  };
+
   const fetchUserProfile = async () => {
     const res = await fetch("/api/user-profile");
     const data = await res.json();
@@ -168,6 +175,14 @@ export default function Home() {
   const handleDeleteMealPlan = async (id: string) => {
     await fetch(`/api/meal-plans/${id}`, { method: "DELETE" });
     setMealPlans((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleRenameMealPlan = (id: string, title: string) => {
+    setMealPlans((prev) => prev.map((p) => p.id === id ? { ...p, title } : p));
+  };
+
+  const handleRenameRecipe = (id: string, title: string) => {
+    setSavedRecipes((prev) => prev.map((r) => r.id === id ? { ...r, title } : r));
   };
 
   const handleDeleteRecipe = async (id: string) => {
@@ -290,8 +305,19 @@ export default function Home() {
       )}
       {showWorkoutModal && (
         <WorkoutModal
-          onClose={() => setShowWorkoutModal(false)}
+          onClose={() => { setShowWorkoutModal(false); setWorkoutInitialRequest(""); }}
           onSaved={(workout) => { handleWorkoutSaved(workout); }}
+          initialCustomRequest={workoutInitialRequest}
+        />
+      )}
+      {showBodyAssessment && (
+        <BodyAssessmentModal
+          onClose={() => setShowBodyAssessment(false)}
+          onGenerateWorkout={(prompt) => {
+            setWorkoutInitialRequest(prompt);
+            setShowBodyAssessment(false);
+            setShowWorkoutModal(true);
+          }}
         />
       )}
       {showProfileModal && (
@@ -304,15 +330,6 @@ export default function Home() {
 
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3 shadow-sm z-20 flex-shrink-0">
-        {activeTab === "chat" && (
-          <button
-            onClick={() => setSidebarOpen((o) => !o)}
-            className="text-gray-400 hover:text-gray-600 transition-colors mr-1"
-            title="Toggle sidebar"
-          >
-            ☰
-          </button>
-        )}
         <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-lg flex-shrink-0">
           🧪
         </div>
@@ -368,16 +385,16 @@ export default function Home() {
               {/* Sign out */}
               {confirmSignOut ? (
                 <div className="px-4 py-2">
-                  <p className="text-xs text-gray-600 mb-2">Sure you want to sign out?</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">Sure you want to sign out?</p>
                   <div className="flex gap-2">
                     <button onClick={() => signOut()} className="text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg px-3 py-1.5 transition-colors">Yes, sign out</button>
-                    <button onClick={() => setConfirmSignOut(false)} className="text-xs text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
+                    <button onClick={() => setConfirmSignOut(false)} className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">Cancel</button>
                   </div>
                 </div>
               ) : (
                 <button
                   onClick={() => { setConfirmSignOut(true); setConfirmDelete(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   🚪 Sign out
                 </button>
@@ -450,13 +467,31 @@ export default function Home() {
 
       {/* Tab content */}
       {activeTab === "recipes" && (
-        <SavedRecipes recipes={savedRecipes} onDelete={handleDeleteRecipe} />
+        <SavedRecipes recipes={savedRecipes} onDelete={handleDeleteRecipe} onRename={handleRenameRecipe} />
       )}
       {activeTab === "meal-plans" && (
-        <SavedPlans plans={mealPlans} onDelete={handleDeleteMealPlan} onGenerate={() => setShowMealPlanModal(true)} />
+        <SavedPlans plans={mealPlans} onDelete={handleDeleteMealPlan} onRename={handleRenameMealPlan} onGenerate={() => setShowMealPlanModal(true)} />
       )}
       {activeTab === "workouts" && (
-        <SavedWorkouts workouts={workouts} onDelete={handleDeleteWorkout} onGenerate={() => setShowWorkoutModal(true)} />
+        <>
+          {/* Body Assessment entry card */}
+          <div className="px-4 pt-4 max-w-2xl mx-auto w-full">
+            <button
+              onClick={() => setShowBodyAssessment(true)}
+              className="w-full flex items-center gap-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-700 rounded-2xl px-4 py-3 hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-900/30 dark:hover:to-blue-900/30 transition-all"
+            >
+              <span className="text-2xl">📸</span>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Body Assessment</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Get AI analysis of your current physique and a personalised plan</p>
+              </div>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-400 ml-auto flex-shrink-0">
+                <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+          <SavedWorkouts workouts={workouts} onDelete={handleDeleteWorkout} onRename={handleRenameWorkout} onGenerate={() => setShowWorkoutModal(true)} />
+        </>
       )}
       {activeTab === "progress" && (
         <ProgressDashboard
@@ -477,7 +512,19 @@ export default function Home() {
             onSelect={handleSelectConversation}
             onDelete={handleDeleteConversation}
             onNewChat={handleNewChat}
+            onClose={() => setSidebarOpen(false)}
           />
+        )}
+        {!sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="flex-shrink-0 self-start mt-3 ml-2 p-2 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="Open sidebar"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 rotate-180">
+              <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+            </svg>
+          </button>
         )}
 
 
