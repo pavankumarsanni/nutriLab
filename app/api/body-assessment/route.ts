@@ -21,64 +21,69 @@ Return ONLY a valid JSON object (no markdown fences, no extra text) with this ex
 }`;
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { image_base64, media_type, current_physique, goal } = await req.json();
-
-  if (!goal) return NextResponse.json({ error: "Missing goal" }, { status: 400 });
-
-  let raw: string;
-
-  if (image_base64 && media_type) {
-    // Vision mode — analyse the photo
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type, data: image_base64 },
-            },
-            {
-              type: "text",
-              text: ASSESSMENT_PROMPT(goal),
-            },
-          ],
-        },
-      ],
-    });
-    raw = (message.content[0] as { type: string; text: string }).text.trim();
-  } else {
-    // Text-only mode — use the self-description
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: ASSESSMENT_PROMPT(goal, current_physique),
-        },
-      ],
-    });
-    raw = (message.content[0] as { type: string; text: string }).text.trim();
-  }
-
-  // Strip markdown code fences if present
-  const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (fenceMatch) raw = fenceMatch[1].trim();
-  if (!raw.startsWith("{")) {
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (jsonMatch) raw = jsonMatch[0].trim();
-  }
-
   try {
-    const result = JSON.parse(raw);
-    return NextResponse.json(result);
-  } catch {
-    return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { image_base64, media_type, current_physique, goal } = await req.json();
+
+    if (!goal) return NextResponse.json({ error: "Missing goal" }, { status: 400 });
+
+    let raw: string;
+
+    if (image_base64 && media_type) {
+      // Vision mode — analyse the photo
+      const message = await client.messages.create({
+        model: "claude-haiku-4-5-20251022",
+        max_tokens: 1024,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: { type: "base64", media_type, data: image_base64 },
+              },
+              {
+                type: "text",
+                text: ASSESSMENT_PROMPT(goal),
+              },
+            ],
+          },
+        ],
+      });
+      raw = (message.content[0] as { type: string; text: string }).text.trim();
+    } else {
+      // Text-only mode — use the self-description
+      const message = await client.messages.create({
+        model: "claude-haiku-4-5-20251022",
+        max_tokens: 1024,
+        messages: [
+          {
+            role: "user",
+            content: ASSESSMENT_PROMPT(goal, current_physique),
+          },
+        ],
+      });
+      raw = (message.content[0] as { type: string; text: string }).text.trim();
+    }
+
+    // Strip markdown code fences if present
+    const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (fenceMatch) raw = fenceMatch[1].trim();
+    if (!raw.startsWith("{")) {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) raw = jsonMatch[0].trim();
+    }
+
+    try {
+      const result = JSON.parse(raw);
+      return NextResponse.json(result);
+    } catch {
+      return NextResponse.json({ error: "Failed to parse AI response. Please try again." }, { status: 500 });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

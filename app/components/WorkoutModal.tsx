@@ -105,9 +105,10 @@ export default function WorkoutModal({ onClose, onSaved, initialCustomRequest = 
     if (!workout || saving || saved) return;
     setSaving(true);
     try {
+      // Pass the already-generated content directly — no need to re-run Claude
       const body = mode === "custom"
-        ? { customRequest: customRequest.trim(), save: true }
-        : { goal, target, level, equipment, duration, save: true };
+        ? { customRequest: customRequest.trim(), existingContent: workout.content, existingTitle: workout.title, save: true }
+        : { goal, target, level, equipment, duration, existingContent: workout.content, existingTitle: workout.title, save: true };
       const res = await fetch("/api/workouts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

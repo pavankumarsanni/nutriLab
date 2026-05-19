@@ -59,7 +59,19 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { goal, target, level, equipment, duration, save, customRequest } = await req.json();
+  const { goal, target, level, equipment, duration, save, customRequest, existingContent, existingTitle } = await req.json();
+
+  // Fast-save path: content already generated, just persist it
+  if (save && existingContent && existingTitle) {
+    const id = crypto.randomUUID();
+    const g = customRequest ? "custom" : (goal ?? "custom");
+    const t = customRequest ? "custom" : (target ?? "custom");
+    const l = customRequest ? "custom" : (level ?? "custom");
+    const eq = customRequest ? "custom" : (equipment ?? "custom");
+    const dur = customRequest ? 0 : (duration ?? 0);
+    await saveWorkout(id, session.user.id, existingTitle, g, t, l, eq, dur, existingContent);
+    return NextResponse.json({ id, title: existingTitle, content: existingContent });
+  }
 
   // Custom request mode — skip preset validation
   if (!customRequest && (!goal || !target || !level || !equipment || !duration)) {

@@ -100,6 +100,9 @@ export default function BodyAssessmentModal({ onClose, onGenerateWorkout }: Prop
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok && res.headers.get("content-type")?.includes("text/html")) {
+        throw new Error("Server error. Please try again in a moment.");
+      }
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setResult(data as AssessmentResult);
