@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     if (image_base64 && media_type) {
       // Vision mode — analyse the photo
       const message = await client.messages.create({
-        model: "claude-haiku-4-5-20251022",
+        model: "claude-sonnet-4-5",
         max_tokens: 1024,
         messages: [
           {
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     } else {
       // Text-only mode — use the self-description
       const message = await client.messages.create({
-        model: "claude-haiku-4-5-20251022",
+        model: "claude-sonnet-4-5",
         max_tokens: 1024,
         messages: [
           {
