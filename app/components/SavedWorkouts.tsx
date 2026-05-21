@@ -166,7 +166,7 @@ function WorkoutItem({ workout, onDelete, onRename }: {
         </div>
       </summary>
       <div className="mt-3">
-        <WorkoutContent content={workout.content} />
+        <WorkoutContent content={workout.content} workoutId={workout.id} workoutTitle={workout.title} />
       </div>
     </details>
   );

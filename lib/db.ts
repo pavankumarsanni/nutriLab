@@ -142,6 +142,30 @@ export async function runMigrations() {
       ALTER TABLE workouts ADD COLUMN IF NOT EXISTS share_id TEXT UNIQUE;
       ALTER TABLE saved_recipes ADD COLUMN IF NOT EXISTS share_id TEXT UNIQUE;
     `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS workout_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        workout_id TEXT REFERENCES workouts(id) ON DELETE SET NULL,
+        workout_title TEXT NOT NULL,
+        duration_secs INTEGER NOT NULL DEFAULT 0,
+        mood TEXT,
+        notes TEXT,
+        logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_workout_logs_user ON workout_logs(user_id, logged_at DESC);
+
+      CREATE TABLE IF NOT EXISTS workout_log_sets (
+        id TEXT PRIMARY KEY,
+        log_id TEXT NOT NULL REFERENCES workout_logs(id) ON DELETE CASCADE,
+        exercise_name TEXT NOT NULL,
+        set_number INTEGER NOT NULL,
+        reps INTEGER,
+        weight_kg NUMERIC(6,2)
+      );
+      CREATE INDEX IF NOT EXISTS idx_workout_log_sets_log ON workout_log_sets(log_id);
+    `);
   } finally {
     client.release();
   }
@@ -521,4 +545,49 @@ export async function copySharedRecipe(shareId: string, userId: string): Promise
     [newId, userId, source.title, source.content]
   );
   return newId;
+}
+
+// ── Workout Logs ──────────────────────────────────────────────────────────────
+
+export async function saveWorkoutLog(
+  id: string, userId: string, workoutId: string | null, workoutTitle: string,
+  durationSecs: number, mood: string | null, notes: string | null,
+  sets: { exerciseName: string; setNumber: number; reps: number | null; weightKg: number | null }[]
+) {
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `INSERT INTO workout_logs (id, user_id, workout_id, workout_title, duration_secs, mood, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, userId, workoutId, workoutTitle, durationSecs, mood, notes]
+    );
+    for (const s of sets) {
+      await client.query(
+        `INSERT INTO workout_log_sets (id, log_id, exercise_name, set_number, reps, weight_kg) VALUES ($1,$2,$3,$4,$5,$6)`,
+        [crypto.randomUUID(), id, s.exerciseName, s.setNumber, s.reps, s.weightKg]
+      );
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getWorkoutLogs(userId: string) {
+  const logs = await getPool().query(
+    `SELECT id, workout_id, workout_title, duration_secs, mood, notes, logged_at FROM workout_logs WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 50`,
+    [userId]
+  );
+  const sets = await getPool().query(
+    `SELECT wls.* FROM workout_log_sets wls JOIN workout_logs wl ON wls.log_id = wl.id WHERE wl.user_id = $1 ORDER BY wls.log_id, wls.exercise_name, wls.set_number`,
+    [userId]
+  );
+  return { logs: logs.rows, sets: sets.rows };
+}
+
+export async function deleteWorkoutLog(id: string, userId: string) {
+  await getPool().query(`DELETE FROM workout_logs WHERE id = $1 AND user_id = $2`, [id, userId]);
 }

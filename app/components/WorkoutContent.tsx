@@ -23,6 +23,8 @@ type WorkoutPlan = {
   pro_tips: string[];
 };
 
+type LoggedSet = { exerciseName: string; setNumber: number; reps: number | null; weightKg: number | null };
+
 function parseContent(content: string): WorkoutPlan | null {
   try { return JSON.parse(content) as WorkoutPlan; } catch { /* continue */ }
   const fenceMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
@@ -225,21 +227,34 @@ function useWorkoutTimers() {
     setRestRunning(false); setRestFinished(false); setRestVisible(false);
   }, []);
 
-  const toggleSession = useCallback(() => {
-    if (sessionRunning) { setSessionRunning(false); setSessionSeconds(0); }
-    else { unlockAudio(); setSessionRunning(true); }
-  }, [sessionRunning]);
+  const pauseSession = useCallback(() => {
+    setSessionRunning(false);
+  }, []);
+
+  const resetSession = useCallback(() => {
+    setSessionRunning(false);
+    setSessionSeconds(0);
+  }, []);
+
+  const startSession = useCallback(() => {
+    unlockAudio();
+    setSessionRunning(true);
+  }, []);
 
   const autoStartSession = useCallback(() => {
     if (!sessionRunning) { unlockAudio(); setSessionRunning(true); }
   }, [sessionRunning]);
 
-  return { sessionRunning, sessionSeconds, restVisible, restSeconds, restTotal, restRunning, restFinished, startRest, skipRest, closeRest, toggleSession, autoStartSession };
+  return {
+    sessionRunning, sessionSeconds, restVisible, restSeconds, restTotal, restRunning, restFinished,
+    startRest, skipRest, closeRest, pauseSession, resetSession, startSession, autoStartSession,
+  };
 }
 
 // ── Session toolbar ───────────────────────────────────────────────────────────
-function SessionBar({ sessionRunning, sessionSeconds, exerciseCount, totalSets, onToggle }: {
-  sessionRunning: boolean; sessionSeconds: number; exerciseCount: number; totalSets: number; onToggle: () => void;
+function SessionBar({ sessionRunning, sessionSeconds, exerciseCount, totalSets, showFinish, onToggle }: {
+  sessionRunning: boolean; sessionSeconds: number; exerciseCount: number; totalSets: number;
+  showFinish: boolean; onToggle: () => void;
 }) {
   return (
     <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-2xl px-4 py-3">
@@ -254,12 +269,14 @@ function SessionBar({ sessionRunning, sessionSeconds, exerciseCount, totalSets, 
         <button
           onClick={onToggle}
           className={`mt-1 text-sm font-medium px-4 py-1.5 rounded-xl transition-colors ${
-            sessionRunning
+            showFinish
+              ? "bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-700"
+              : sessionRunning
               ? "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-700"
               : "bg-green-600 hover:bg-green-700 text-white"
           }`}
         >
-          {sessionRunning ? "⏹ End Workout" : "▶ Start Workout"}
+          {showFinish ? "🏁 Finish" : sessionRunning ? "⏹ End Workout" : "▶ Start Workout"}
         </button>
       </div>
     </div>
@@ -267,9 +284,10 @@ function SessionBar({ sessionRunning, sessionSeconds, exerciseCount, totalSets, 
 }
 
 // ── Single-day body ───────────────────────────────────────────────────────────
-function DayBody({ warmup, exercises, cooldown, sessionRunning, onSetDone }: {
+function DayBody({ warmup, exercises, cooldown, sessionRunning, onSetDone, onLogSet }: {
   warmup: WarmCoolItem[]; exercises: Exercise[]; cooldown: WarmCoolItem[];
   sessionRunning: boolean; onSetDone: (restSecs: number) => void;
+  onLogSet: (set: LoggedSet) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -287,7 +305,7 @@ function DayBody({ warmup, exercises, cooldown, sessionRunning, onSetDone }: {
         <Section title="💪 Main Workout" subtitle={`${exercises.length} exercises`}>
           <div className="space-y-3">
             {exercises.map((ex, i) => (
-              <ExerciseCard key={i} exercise={ex} index={i + 1} defaultOpen={i === 0} onSetDone={onSetDone} />
+              <ExerciseCard key={i} exercise={ex} index={i + 1} defaultOpen={i === 0} onSetDone={onSetDone} onLogSet={onLogSet} />
             ))}
           </div>
         </Section>
@@ -302,10 +320,81 @@ function DayBody({ warmup, exercises, cooldown, sessionRunning, onSetDone }: {
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export default function WorkoutContent({ content }: { content: string }) {
+export default function WorkoutContent({ content, workoutId, workoutTitle }: { content: string; workoutId?: string; workoutTitle?: string }) {
   const plan = parseContent(content);
   const timers = useWorkoutTimers();
   const [activeDay, setActiveDay] = useState(0);
+  const [showFinish, setShowFinish] = useState(false);
+  const [mood, setMood] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const loggedSetsRef = useRef<LoggedSet[]>([]);
+
+  const handleLogSet = useCallback((set: LoggedSet) => {
+    // Replace existing entry for same exercise+set or append
+    loggedSetsRef.current = [
+      ...loggedSetsRef.current.filter(
+        (s) => !(s.exerciseName === set.exerciseName && s.setNumber === set.setNumber)
+      ),
+      set,
+    ];
+  }, []);
+
+  const handleToggleSession = () => {
+    if (showFinish) {
+      // already in finish panel — do nothing (button now says "🏁 Finish")
+      return;
+    }
+    if (timers.sessionRunning) {
+      // End workout → show finish panel, pause timer
+      timers.pauseSession();
+      setShowFinish(true);
+    } else {
+      timers.startSession();
+    }
+  };
+
+  const saveSession = async () => {
+    setSaving(true);
+    try {
+      const title = workoutTitle ?? (plan ? (plan.days?.[activeDay]?.label ?? "Workout") : "Workout");
+      await fetch("/api/workout-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workoutId: workoutId ?? null,
+          workoutTitle: title,
+          durationSecs: timers.sessionSeconds,
+          mood: mood || null,
+          notes: notes || null,
+          sets: loggedSetsRef.current,
+        }),
+      });
+      // Success toast via simple alert for now; real toast via state
+      setShowFinish(false);
+      setMood("");
+      setNotes("");
+      loggedSetsRef.current = [];
+      timers.resetSession();
+      // Show a brief success message
+      setToast("✅ Session saved!");
+      setTimeout(() => setToast(""), 3000);
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const discardSession = () => {
+    setShowFinish(false);
+    setMood("");
+    setNotes("");
+    loggedSetsRef.current = [];
+    timers.resetSession();
+  };
+
+  const [toast, setToast] = useState("");
 
   // Fallback for old markdown-format workouts
   if (!plan) {
@@ -318,6 +407,42 @@ export default function WorkoutContent({ content }: { content: string }) {
 
   const handleSetDone = (restSecs: number) => { timers.startRest(restSecs); timers.autoStartSession(); };
 
+  const finishPanel = showFinish && (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 space-y-4 shadow-lg">
+      <h3 className="font-semibold text-gray-900 dark:text-gray-100">🏁 Finish Session</h3>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-gray-500 dark:text-gray-400">Duration:</span>
+        <span className="text-sm font-bold text-green-600">{formatTime(timers.sessionSeconds)}</span>
+      </div>
+      {/* Mood */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">How did it feel?</p>
+        <div className="flex gap-2">
+          {['😴','😐','🙂','💪','🔥'].map(m => (
+            <button key={m} onClick={() => setMood(m)}
+              className={`text-2xl p-1.5 rounded-xl border-2 transition-all ${mood === m ? 'border-green-500 scale-110' : 'border-transparent hover:border-gray-300'}`}
+            >{m}</button>
+          ))}
+        </div>
+      </div>
+      {/* Notes */}
+      <textarea value={notes} onChange={e => setNotes(e.target.value)}
+        placeholder="How did it feel? Any PRs? Notes..."
+        rows={2}
+        className="w-full text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 resize-none outline-none focus:ring-2 focus:ring-green-400 text-gray-800 dark:text-gray-100 placeholder-gray-400"
+      />
+      <div className="flex gap-3">
+        <button onClick={saveSession}
+          className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
+        >💾 Save Session</button>
+        <button onClick={discardSession}
+          className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-4 transition-colors"
+        >Discard</button>
+      </div>
+      {saving && <p className="text-xs text-center text-gray-400">Saving...</p>}
+    </div>
+  );
+
   // ── Multi-day plan — detect by presence of days[] array ────────────────────
   if (plan.days && plan.days.length > 0) {
     const day = plan.days[activeDay];
@@ -325,6 +450,11 @@ export default function WorkoutContent({ content }: { content: string }) {
 
     return (
       <div className="space-y-4 pb-24">
+        {toast && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-lg">
+            {toast}
+          </div>
+        )}
         <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{plan.intro}</p>
 
         {/* Day tabs */}
@@ -348,12 +478,16 @@ export default function WorkoutContent({ content }: { content: string }) {
         <SessionBar
           sessionRunning={timers.sessionRunning} sessionSeconds={timers.sessionSeconds}
           exerciseCount={day.exercises.length} totalSets={totalSets}
-          onToggle={timers.toggleSession}
+          showFinish={showFinish}
+          onToggle={handleToggleSession}
         />
+
+        {finishPanel}
 
         <DayBody
           warmup={day.warmup} exercises={day.exercises} cooldown={day.cooldown}
           sessionRunning={timers.sessionRunning} onSetDone={handleSetDone}
+          onLogSet={handleLogSet}
         />
 
         {plan.pro_tips?.length > 0 && (
@@ -383,17 +517,26 @@ export default function WorkoutContent({ content }: { content: string }) {
 
   return (
     <div className="space-y-6 pb-24">
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-lg">
+          {toast}
+        </div>
+      )}
       <SessionBar
         sessionRunning={timers.sessionRunning} sessionSeconds={timers.sessionSeconds}
         exerciseCount={exercises.length} totalSets={totalSets}
-        onToggle={timers.toggleSession}
+        showFinish={showFinish}
+        onToggle={handleToggleSession}
       />
+
+      {finishPanel}
 
       <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{plan.intro}</p>
 
       <DayBody
         warmup={plan.warmup ?? []} exercises={exercises} cooldown={plan.cooldown ?? []}
         sessionRunning={timers.sessionRunning} onSetDone={handleSetDone}
+        onLogSet={handleLogSet}
       />
 
       {plan.pro_tips?.length > 0 && (
@@ -456,11 +599,13 @@ function SimpleItem({ item }: { item: WarmCoolItem }) {
   );
 }
 
-function ExerciseCard({ exercise, index, onSetDone, defaultOpen = false }: {
-  exercise: Exercise; index: number; onSetDone: (restSeconds: number) => void; defaultOpen?: boolean;
+function ExerciseCard({ exercise, index, onSetDone, onLogSet, defaultOpen = false }: {
+  exercise: Exercise; index: number; onSetDone: (restSeconds: number) => void;
+  onLogSet: (set: LoggedSet) => void; defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [completedSets, setCompletedSets] = useState<Set<number>>(new Set());
+  const [setData, setSetData] = useState<Record<number, { reps: string; weight: string }>>({});
   const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.youtube_query)}`;
   const numSets = parseSets(exercise.sets);
   const restSecs = parseRestSeconds(exercise.rest);
@@ -470,8 +615,20 @@ function ExerciseCard({ exercise, index, onSetDone, defaultOpen = false }: {
     unlockAudio(); // must be called inside the click handler (user gesture)
     setCompletedSets((prev) => {
       const next = new Set(prev);
-      if (next.has(i)) { next.delete(i); }
-      else { next.add(i); onSetDone(restSecs); }
+      if (next.has(i)) {
+        next.delete(i);
+      } else {
+        next.add(i);
+        onSetDone(restSecs);
+        // Log this set
+        const d = setData[i];
+        onLogSet({
+          exerciseName: exercise.name,
+          setNumber: i + 1,
+          reps: d?.reps ? parseInt(d.reps) : null,
+          weightKg: d?.weight ? parseFloat(d.weight) : null,
+        });
+      }
       return next;
     });
   };
@@ -546,6 +703,31 @@ function ExerciseCard({ exercise, index, onSetDone, defaultOpen = false }: {
               <p className="text-xs text-green-600 dark:text-green-400 mt-2 font-medium">✅ All sets complete!</p>
             )}
             <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">Rest timer starts automatically when you tick a set</p>
+          </div>
+
+          {/* Weight/reps log inputs */}
+          <div className="mt-3 space-y-2">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Log your sets</p>
+            <div className="space-y-2">
+              {Array.from({ length: numSets }).map((_, i) => (
+                <div key={i} className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${completedSets.has(i) ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-10 flex-shrink-0">Set {i+1}</span>
+                  <input type="number" placeholder="kg" min="0" step="0.5"
+                    value={setData[i]?.weight ?? ''}
+                    onChange={e => setSetData(prev => ({...prev, [i]: {...prev[i], weight: e.target.value}}))}
+                    className="w-16 text-center text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-green-400"
+                  />
+                  <span className="text-xs text-gray-400">kg</span>
+                  <input type="number" placeholder="reps" min="0"
+                    value={setData[i]?.reps ?? ''}
+                    onChange={e => setSetData(prev => ({...prev, [i]: {...prev[i], reps: e.target.value}}))}
+                    className="w-16 text-center text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-green-400"
+                  />
+                  <span className="text-xs text-gray-400">reps</span>
+                  {completedSets.has(i) && <span className="text-green-500 ml-auto">✓</span>}
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Instructions */}
