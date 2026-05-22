@@ -10,9 +10,30 @@ type Props = {
   onDelete: (id: string) => void;
 };
 
+function useWeightUnit() {
+  const [unit, setUnit] = useState<"kg" | "lbs">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("workoutWeightUnit") as "kg" | "lbs") ?? "kg";
+    }
+    return "kg";
+  });
+  const toggle = () => {
+    const next = unit === "kg" ? "lbs" : "kg";
+    setUnit(next);
+    localStorage.setItem("workoutWeightUnit", next);
+  };
+  const display = (kg: number | null) => {
+    if (kg == null) return "—";
+    if (unit === "lbs") return `${Math.round(kg * 2.20462)}lbs`;
+    return `${kg}kg`;
+  };
+  return { unit, toggle, display };
+}
+
 export default function WorkoutHistory({ logs, sets, onDelete }: Props) {
   const [progressExercise, setProgressExercise] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const weight = useWeightUnit();
 
   // Get unique exercise names across all logs for the progress picker
   const allExercises = Array.from(new Set(sets.map(s => s.exercise_name))).sort();
@@ -40,10 +61,18 @@ export default function WorkoutHistory({ logs, sets, onDelete }: Props) {
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 px-6 py-4 z-10">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">📈</span>
-          <h2 className="font-semibold text-gray-900 dark:text-gray-100">Workout History</h2>
-          {logs.length > 0 && <span className="text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5">{logs.length}</span>}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">📈</span>
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100">Workout History</h2>
+            {logs.length > 0 && <span className="text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5">{logs.length}</span>}
+          </div>
+          {/* Unit toggle */}
+          <button onClick={weight.toggle} title="Switch weight unit"
+            className="flex items-center bg-gray-200 dark:bg-gray-700 rounded-full p-0.5 w-[56px]">
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full transition-all ${weight.unit === "kg" ? "bg-white dark:bg-gray-800 text-green-700 dark:text-green-400 shadow-sm" : "text-gray-500 dark:text-gray-400"}`}>kg</span>
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full transition-all ${weight.unit === "lbs" ? "bg-white dark:bg-gray-800 text-green-700 dark:text-green-400 shadow-sm" : "text-gray-500 dark:text-gray-400"}`}>lbs</span>
+          </button>
         </div>
       </div>
 
@@ -82,7 +111,7 @@ export default function WorkoutHistory({ logs, sets, onDelete }: Props) {
                             className="h-full bg-green-500 rounded-full flex items-center justify-end pr-2 transition-all duration-500"
                             style={{ width: `${Math.max((d.maxWeight / maxProgressWeight) * 100, 8)}%` }}
                           >
-                            <span className="text-[10px] font-bold text-white">{d.maxWeight > 0 ? `${d.maxWeight}kg` : '-'}</span>
+                            <span className="text-[10px] font-bold text-white">{d.maxWeight > 0 ? weight.display(d.maxWeight) : '-'}</span>
                           </div>
                         </div>
                         <span className="text-[10px] text-gray-400 w-16 text-right">{d.totalReps} reps</span>
@@ -95,7 +124,7 @@ export default function WorkoutHistory({ logs, sets, onDelete }: Props) {
                       if (diff === 0) return null;
                       return (
                         <p className={`text-xs font-medium ${diff > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
-                          {diff > 0 ? '🔥' : '📉'} {diff > 0 ? '+' : ''}{diff}kg since first session
+                          {diff > 0 ? '🔥' : '📉'} {diff > 0 ? '+' : ''}{weight.display(diff)} since first session
                         </p>
                       );
                     })()}
@@ -160,7 +189,7 @@ export default function WorkoutHistory({ logs, sets, onDelete }: Props) {
                               {exSets.map((s, i) => (
                                 <div key={i} className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 text-center min-w-[56px]">
                                   <p className="text-[10px] text-gray-400 dark:text-gray-500">Set {s.set_number}</p>
-                                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">{s.weight_kg != null ? `${s.weight_kg}kg` : '—'}</p>
+                                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">{weight.display(s.weight_kg)}</p>
                                   <p className="text-[10px] text-gray-500 dark:text-gray-400">{s.reps != null ? `${s.reps} reps` : '—'}</p>
                                 </div>
                               ))}
