@@ -252,9 +252,9 @@ function useWorkoutTimers() {
 }
 
 // ── Session toolbar ───────────────────────────────────────────────────────────
-function SessionBar({ sessionRunning, sessionSeconds, exerciseCount, totalSets, showFinish, onToggle }: {
+function SessionBar({ sessionRunning, sessionSeconds, exerciseCount, totalSets, showFinish, unit, onToggle, onToggleUnit }: {
   sessionRunning: boolean; sessionSeconds: number; exerciseCount: number; totalSets: number;
-  showFinish: boolean; onToggle: () => void;
+  showFinish: boolean; unit: "kg" | "lbs"; onToggle: () => void; onToggleUnit: () => void;
 }) {
   return (
     <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-2xl px-4 py-3">
@@ -263,6 +263,15 @@ function SessionBar({ sessionRunning, sessionSeconds, exerciseCount, totalSets, 
         <p className={`text-xl font-bold tabular-nums ${sessionRunning ? "text-green-600 dark:text-green-400" : "text-gray-400 dark:text-gray-500"}`}>
           {formatTime(sessionSeconds)}
         </p>
+        {/* kg / lbs toggle */}
+        <button
+          onClick={onToggleUnit}
+          title="Switch weight unit"
+          className="mt-1.5 flex items-center bg-gray-200 dark:bg-gray-600 rounded-full p-0.5 w-[56px]"
+        >
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full transition-all ${unit === "kg" ? "bg-white dark:bg-gray-800 text-green-700 dark:text-green-400 shadow-sm" : "text-gray-500 dark:text-gray-400"}`}>kg</span>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full transition-all ${unit === "lbs" ? "bg-white dark:bg-gray-800 text-green-700 dark:text-green-400 shadow-sm" : "text-gray-500 dark:text-gray-400"}`}>lbs</span>
+        </button>
       </div>
       <div className="text-right">
         <p className="text-xs text-gray-400 dark:text-gray-500">{exerciseCount} exercises · {totalSets} sets</p>
@@ -284,10 +293,10 @@ function SessionBar({ sessionRunning, sessionSeconds, exerciseCount, totalSets, 
 }
 
 // ── Single-day body ───────────────────────────────────────────────────────────
-function DayBody({ warmup, exercises, cooldown, sessionRunning, onSetDone, onLogSet }: {
+function DayBody({ warmup, exercises, cooldown, sessionRunning, onSetDone, onLogSet, unit }: {
   warmup: WarmCoolItem[]; exercises: Exercise[]; cooldown: WarmCoolItem[];
   sessionRunning: boolean; onSetDone: (restSecs: number) => void;
-  onLogSet: (set: LoggedSet) => void;
+  onLogSet: (set: LoggedSet) => void; unit: "kg" | "lbs";
 }) {
   return (
     <div className="space-y-6">
@@ -305,7 +314,7 @@ function DayBody({ warmup, exercises, cooldown, sessionRunning, onSetDone, onLog
         <Section title="💪 Main Workout" subtitle={`${exercises.length} exercises`}>
           <div className="space-y-3">
             {exercises.map((ex, i) => (
-              <ExerciseCard key={i} exercise={ex} index={i + 1} defaultOpen={i === 0} onSetDone={onSetDone} onLogSet={onLogSet} />
+              <ExerciseCard key={i} exercise={ex} index={i + 1} defaultOpen={i === 0} onSetDone={onSetDone} onLogSet={onLogSet} unit={unit} />
             ))}
           </div>
         </Section>
@@ -329,6 +338,18 @@ export default function WorkoutContent({ content, workoutId, workoutTitle }: { c
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const loggedSetsRef = useRef<LoggedSet[]>([]);
+  const [unit, setUnit] = useState<"kg" | "lbs">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("workoutWeightUnit") as "kg" | "lbs") ?? "kg";
+    }
+    return "kg";
+  });
+
+  const toggleUnit = () => {
+    const next = unit === "kg" ? "lbs" : "kg";
+    setUnit(next);
+    localStorage.setItem("workoutWeightUnit", next);
+  };
 
   const handleLogSet = useCallback((set: LoggedSet) => {
     // Replace existing entry for same exercise+set or append
@@ -478,8 +499,8 @@ export default function WorkoutContent({ content, workoutId, workoutTitle }: { c
         <SessionBar
           sessionRunning={timers.sessionRunning} sessionSeconds={timers.sessionSeconds}
           exerciseCount={day.exercises.length} totalSets={totalSets}
-          showFinish={showFinish}
-          onToggle={handleToggleSession}
+          showFinish={showFinish} unit={unit}
+          onToggle={handleToggleSession} onToggleUnit={toggleUnit}
         />
 
         {finishPanel}
@@ -487,7 +508,7 @@ export default function WorkoutContent({ content, workoutId, workoutTitle }: { c
         <DayBody
           warmup={day.warmup} exercises={day.exercises} cooldown={day.cooldown}
           sessionRunning={timers.sessionRunning} onSetDone={handleSetDone}
-          onLogSet={handleLogSet}
+          onLogSet={handleLogSet} unit={unit}
         />
 
         {plan.pro_tips?.length > 0 && (
@@ -525,8 +546,8 @@ export default function WorkoutContent({ content, workoutId, workoutTitle }: { c
       <SessionBar
         sessionRunning={timers.sessionRunning} sessionSeconds={timers.sessionSeconds}
         exerciseCount={exercises.length} totalSets={totalSets}
-        showFinish={showFinish}
-        onToggle={handleToggleSession}
+        showFinish={showFinish} unit={unit}
+        onToggle={handleToggleSession} onToggleUnit={toggleUnit}
       />
 
       {finishPanel}
@@ -536,7 +557,7 @@ export default function WorkoutContent({ content, workoutId, workoutTitle }: { c
       <DayBody
         warmup={plan.warmup ?? []} exercises={exercises} cooldown={plan.cooldown ?? []}
         sessionRunning={timers.sessionRunning} onSetDone={handleSetDone}
-        onLogSet={handleLogSet}
+        onLogSet={handleLogSet} unit={unit}
       />
 
       {plan.pro_tips?.length > 0 && (
@@ -599,9 +620,9 @@ function SimpleItem({ item }: { item: WarmCoolItem }) {
   );
 }
 
-function ExerciseCard({ exercise, index, onSetDone, onLogSet, defaultOpen = false }: {
+function ExerciseCard({ exercise, index, onSetDone, onLogSet, unit, defaultOpen = false }: {
   exercise: Exercise; index: number; onSetDone: (restSeconds: number) => void;
-  onLogSet: (set: LoggedSet) => void; defaultOpen?: boolean;
+  onLogSet: (set: LoggedSet) => void; unit: "kg" | "lbs"; defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [completedSets, setCompletedSets] = useState<Set<number>>(new Set());
@@ -610,6 +631,12 @@ function ExerciseCard({ exercise, index, onSetDone, onLogSet, defaultOpen = fals
   const numSets = parseSets(exercise.sets);
   const restSecs = parseRestSeconds(exercise.rest);
   const allDone = completedSets.size === numSets;
+
+  const toKg = (val: string) => {
+    const n = parseFloat(val);
+    if (isNaN(n)) return null;
+    return unit === "lbs" ? Math.round(n * 0.453592 * 100) / 100 : n;
+  };
 
   const toggleSet = (i: number) => {
     unlockAudio(); // must be called inside the click handler (user gesture)
@@ -620,13 +647,12 @@ function ExerciseCard({ exercise, index, onSetDone, onLogSet, defaultOpen = fals
       } else {
         next.add(i);
         onSetDone(restSecs);
-        // Log this set
         const d = setData[i];
         onLogSet({
           exerciseName: exercise.name,
           setNumber: i + 1,
           reps: d?.reps ? parseInt(d.reps) : null,
-          weightKg: d?.weight ? parseFloat(d.weight) : null,
+          weightKg: d?.weight ? toKg(d.weight) : null, // always stored as kg
         });
       }
       return next;
@@ -712,12 +738,12 @@ function ExerciseCard({ exercise, index, onSetDone, onLogSet, defaultOpen = fals
               {Array.from({ length: numSets }).map((_, i) => (
                 <div key={i} className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${completedSets.has(i) ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
                   <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-10 flex-shrink-0">Set {i+1}</span>
-                  <input type="number" placeholder="kg" min="0" step="0.5"
+                  <input type="number" placeholder={unit} min="0" step={unit === "lbs" ? "1" : "0.5"}
                     value={setData[i]?.weight ?? ''}
                     onChange={e => setSetData(prev => ({...prev, [i]: {...prev[i], weight: e.target.value}}))}
                     className="w-16 text-center text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-green-400"
                   />
-                  <span className="text-xs text-gray-400">kg</span>
+                  <span className="text-xs text-gray-400">{unit}</span>
                   <input type="number" placeholder="reps" min="0"
                     value={setData[i]?.reps ?? ''}
                     onChange={e => setSetData(prev => ({...prev, [i]: {...prev[i], reps: e.target.value}}))}
