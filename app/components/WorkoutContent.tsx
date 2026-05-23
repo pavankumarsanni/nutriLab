@@ -189,6 +189,8 @@ function RestTimerPanel({
 }
 
 // ── Shared timer hooks ────────────────────────────────────────────────────────
+// Uses wall-clock timestamps so timers stay accurate when the tab is hidden,
+// the screen locks, or the user watches the YouTube link in another tab.
 function useWorkoutTimers() {
   const [sessionRunning, setSessionRunning] = useState(false);
   const [sessionSeconds, setSessionSeconds] = useState(0);
@@ -197,52 +199,120 @@ function useWorkoutTimers() {
   const [restTotal, setRestTotal] = useState(60);
   const [restRunning, setRestRunning] = useState(false);
   const [restFinished, setRestFinished] = useState(false);
-  const restRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Wall-clock refs — never reset by interval throttling
+  const sessionStartRef = useRef<number | null>(null);   // Date.now() when current run started
+  const sessionBaseRef  = useRef(0);                      // seconds already accumulated before this run
+  const restStartRef    = useRef<number | null>(null);   // Date.now() when rest started
+  const restTotalRef    = useRef(60);
+  const tickRef         = useRef<ReturnType<typeof setInterval> | null>(null);
+  const restTickRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Session timer ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!sessionRunning) return;
-    const id = setInterval(() => setSessionSeconds((s) => s + 1), 1000);
+    sessionStartRef.current = Date.now();
+    const id = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - sessionStartRef.current!) / 1000);
+      setSessionSeconds(sessionBaseRef.current + elapsed);
+    }, 500); // 500 ms ticks catch up faster after wakeup
+    tickRef.current = id;
     return () => clearInterval(id);
   }, [sessionRunning]);
 
+  // ── Page Visibility API — sync timers when tab regains focus ───────────────
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+
+      // Correct session timer immediately
+      if (sessionRunning && sessionStartRef.current !== null) {
+        const elapsed = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+        setSessionSeconds(sessionBaseRef.current + elapsed);
+      }
+
+      // Correct rest timer immediately
+      if (restStartRef.current !== null) {
+        const spent = Math.floor((Date.now() - restStartRef.current) / 1000);
+        const remaining = restTotalRef.current - spent;
+        if (remaining <= 0) {
+          if (restTickRef.current) clearInterval(restTickRef.current);
+          restTickRef.current = null;
+          restStartRef.current = null;
+          setRestSeconds(0);
+          setRestRunning(false);
+          setRestFinished(true);
+          playBeep();
+        } else {
+          setRestSeconds(remaining);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [sessionRunning]);
+
+  // ── Rest timer ─────────────────────────────────────────────────────────────
   const startRest = useCallback((seconds: number) => {
-    if (restRef.current) clearInterval(restRef.current);
+    if (restTickRef.current) clearInterval(restTickRef.current);
+    restTotalRef.current = seconds;
+    restStartRef.current = Date.now();
     setRestTotal(seconds); setRestSeconds(seconds);
     setRestRunning(true); setRestFinished(false); setRestVisible(true);
-    restRef.current = setInterval(() => {
-      setRestSeconds((prev) => {
-        if (prev <= 1) { clearInterval(restRef.current!); setRestRunning(false); setRestFinished(true); playBeep(); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
+
+    restTickRef.current = setInterval(() => {
+      const spent = Math.floor((Date.now() - restStartRef.current!) / 1000);
+      const remaining = restTotalRef.current - spent;
+      if (remaining <= 0) {
+        clearInterval(restTickRef.current!);
+        restTickRef.current = null;
+        restStartRef.current = null;
+        setRestSeconds(0);
+        setRestRunning(false);
+        setRestFinished(true);
+        playBeep();
+      } else {
+        setRestSeconds(remaining);
+      }
+    }, 500);
   }, []);
 
   const skipRest = useCallback(() => {
-    if (restRef.current) clearInterval(restRef.current);
+    if (restTickRef.current) clearInterval(restTickRef.current);
+    restTickRef.current = null; restStartRef.current = null;
     setRestRunning(false); setRestFinished(false); setRestVisible(false);
   }, []);
 
   const closeRest = useCallback(() => {
-    if (restRef.current) clearInterval(restRef.current);
+    if (restTickRef.current) clearInterval(restTickRef.current);
+    restTickRef.current = null; restStartRef.current = null;
     setRestRunning(false); setRestFinished(false); setRestVisible(false);
   }, []);
 
   const pauseSession = useCallback(() => {
+    // Accumulate elapsed before pausing so resume picks up where we left off
+    if (sessionStartRef.current !== null) {
+      sessionBaseRef.current += Math.floor((Date.now() - sessionStartRef.current) / 1000);
+      sessionStartRef.current = null;
+    }
     setSessionRunning(false);
   }, []);
 
   const resetSession = useCallback(() => {
+    sessionBaseRef.current = 0;
+    sessionStartRef.current = null;
     setSessionRunning(false);
     setSessionSeconds(0);
   }, []);
 
   const startSession = useCallback(() => {
     unlockAudio();
+    sessionStartRef.current = Date.now();
     setSessionRunning(true);
   }, []);
 
   const autoStartSession = useCallback(() => {
-    if (!sessionRunning) { unlockAudio(); setSessionRunning(true); }
+    if (!sessionRunning) { unlockAudio(); sessionStartRef.current = Date.now(); setSessionRunning(true); }
   }, [sessionRunning]);
 
   return {
