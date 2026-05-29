@@ -2,7 +2,17 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 
-type FoodLog = { id: string; meal_type: string; food_name: string; calories: number | null; logged_date: string };
+type FoodLog = {
+  id: string;
+  meal_type: string;
+  food_name: string;
+  calories: number | null;
+  logged_date: string;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  fiber_g: number | null;
+};
 type Profile = {
   height_cm: number | null;
   current_weight_kg: number | null;
@@ -44,9 +54,12 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
   const [estimating, setEstimating] = useState(false);
   const [isEstimated, setIsEstimated] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [scanningLabel, setScanningLabel] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [macros, setMacros] = useState<{ protein_g: number | null; carbs_g: number | null; fat_g: number | null; fiber_g: number | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const labelInputRef = useRef<HTMLInputElement>(null);
 
   const fetchLogs = useCallback(async (date: string) => {
     setLoadingLogs(true);
@@ -81,30 +94,72 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
     }
   };
 
+  const toBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleImageScan = async (file: File) => {
     setScanning(true);
     setIsEstimated(false);
+    setMacros(null);
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      const base64 = await toBase64(file);
       const res = await fetch("/api/food-logs/estimate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image_base64: base64, media_type: file.type }),
       });
-      const data = await res.json();
+      const data = await res.json() as { food_name?: string; calories?: number };
       if (data.food_name) { setFoodInput(data.food_name); setIsEstimated(true); }
       if (data.calories) setCaloriesInput(String(data.calories));
     } catch {
       // silently fail — user can type manually
     } finally {
       setScanning(false);
+    }
+  };
+
+  const handleLabelScan = async (file: File) => {
+    setScanningLabel(true);
+    setIsEstimated(false);
+    setMacros(null);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    try {
+      const base64 = await toBase64(file);
+      const res = await fetch("/api/food-logs/scan-label", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_base64: base64, media_type: file.type }),
+      });
+      const data = await res.json() as {
+        food_name?: string;
+        calories?: number | null;
+        protein_g?: number | null;
+        carbs_g?: number | null;
+        fat_g?: number | null;
+        fiber_g?: number | null;
+      };
+      if (data.food_name) { setFoodInput(data.food_name); setIsEstimated(true); }
+      if (data.calories != null) setCaloriesInput(String(data.calories));
+      if (data.protein_g != null || data.carbs_g != null || data.fat_g != null || data.fiber_g != null) {
+        setMacros({
+          protein_g: data.protein_g ?? null,
+          carbs_g: data.carbs_g ?? null,
+          fat_g: data.fat_g ?? null,
+          fiber_g: data.fiber_g ?? null,
+        });
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setScanningLabel(false);
     }
   };
 
@@ -120,14 +175,19 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
           food_name: foodInput.trim(),
           calories: caloriesInput ? parseInt(caloriesInput) : null,
           logged_date: selectedDate,
+          protein_g: macros?.protein_g ?? null,
+          carbs_g: macros?.carbs_g ?? null,
+          fat_g: macros?.fat_g ?? null,
+          fiber_g: macros?.fiber_g ?? null,
         }),
       });
-      const data = await res.json();
-      if (data.log) setLogs((prev) => [...prev, data.log]);
+      const data = await res.json() as { log?: FoodLog };
+      if (data.log) setLogs((prev) => [...prev, data.log!]);
       setFoodInput("");
       setCaloriesInput("");
       setIsEstimated(false);
       setPreviewUrl(null);
+      setMacros(null);
       setAddingTo(null);
     } finally {
       setSaving(false);
@@ -217,7 +277,7 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
                   )}
                 </div>
                 <button
-                  onClick={() => { setAddingTo(isAdding ? null : key); setFoodInput(""); setCaloriesInput(""); setIsEstimated(false); setPreviewUrl(null); }}
+                  onClick={() => { setAddingTo(isAdding ? null : key); setFoodInput(""); setCaloriesInput(""); setIsEstimated(false); setPreviewUrl(null); setMacros(null); }}
                   className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${
                     isAdding
                       ? "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
@@ -232,18 +292,27 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
               {mealLogs.length > 0 && (
                 <div className="space-y-1.5 mb-3">
                   {mealLogs.map((log) => (
-                    <div key={log.id} className="flex items-center justify-between py-1 border-b border-gray-50 dark:border-gray-700 last:border-0">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{log.food_name}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
-                          {log.calories != null ? `${log.calories} kcal` : "—"}
-                        </span>
-                        <button
-                          onClick={() => handleDelete(log.id)}
-                          className="text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-400 text-xs transition-colors"
-                          title="Delete"
-                        >✕</button>
+                    <div key={log.id} className="py-1 border-b border-gray-50 dark:border-gray-700 last:border-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{log.food_name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                            {log.calories != null ? `${log.calories} kcal` : "—"}
+                          </span>
+                          <button
+                            onClick={() => handleDelete(log.id)}
+                            className="text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-400 text-xs transition-colors"
+                            title="Delete"
+                          >✕</button>
+                        </div>
                       </div>
+                      {(log.protein_g != null || log.carbs_g != null || log.fat_g != null) && (
+                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+                          {log.protein_g != null && `P:${log.protein_g}g`}
+                          {log.carbs_g != null && ` C:${log.carbs_g}g`}
+                          {log.fat_g != null && ` F:${log.fat_g}g`}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -256,7 +325,7 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
               {/* Add form */}
               {isAdding && (
                 <div className="mt-2 space-y-2">
-                  {/* Hidden file input */}
+                  {/* Hidden file inputs */}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -265,21 +334,41 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
                     className="hidden"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageScan(f); e.target.value = ""; }}
                   />
+                  <input
+                    ref={labelInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLabelScan(f); e.target.value = ""; }}
+                  />
 
                   {/* Image preview */}
                   {previewUrl && (
                     <div className="relative w-full rounded-xl overflow-hidden border border-gray-200 dark:border-gray-600">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={previewUrl} alt="Food preview" className="w-full max-h-40 object-cover" />
-                      {scanning && (
+                      {(scanning || scanningLabel) && (
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <p className="text-white text-sm font-medium">✨ Analysing food…</p>
+                          <p className="text-white text-sm font-medium">
+                            {scanningLabel ? "🏷️ Reading label…" : "✨ Analysing food…"}
+                          </p>
                         </div>
                       )}
                       <button
-                        onClick={() => { setPreviewUrl(null); setFoodInput(""); setCaloriesInput(""); setIsEstimated(false); }}
+                        onClick={() => { setPreviewUrl(null); setFoodInput(""); setCaloriesInput(""); setIsEstimated(false); setMacros(null); }}
                         className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition-colors"
                       >✕</button>
+                    </div>
+                  )}
+
+                  {/* Macros preview */}
+                  {macros && (
+                    <div className="flex gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span>Protein: <strong className="text-gray-700 dark:text-gray-300">{macros.protein_g ?? "?"}g</strong></span>
+                      <span>·</span>
+                      <span>Carbs: <strong className="text-gray-700 dark:text-gray-300">{macros.carbs_g ?? "?"}g</strong></span>
+                      <span>·</span>
+                      <span>Fat: <strong className="text-gray-700 dark:text-gray-300">{macros.fat_g ?? "?"}g</strong></span>
                     </div>
                   )}
 
@@ -296,11 +385,20 @@ export default function FoodDiary({ profile }: { profile: Profile | null }) {
                     {/* Camera button */}
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={scanning}
+                      disabled={scanning || scanningLabel}
                       className="flex-shrink-0 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-700 rounded-xl px-3 py-2 text-sm transition-colors disabled:opacity-40"
                       title="Scan food with camera"
                     >
                       {scanning ? "⏳" : "📷"}
+                    </button>
+                    {/* Scan Label button */}
+                    <button
+                      onClick={() => labelInputRef.current?.click()}
+                      disabled={scanning || scanningLabel}
+                      className="flex-shrink-0 bg-orange-50 dark:bg-orange-900/30 hover:bg-orange-100 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-700 rounded-xl px-3 py-2 text-sm transition-colors disabled:opacity-40"
+                      title="Scan nutrition label"
+                    >
+                      {scanningLabel ? "⏳" : "🏷️"}
                     </button>
                     <button
                       onClick={handleEstimate}

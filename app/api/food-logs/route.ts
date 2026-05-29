@@ -24,18 +24,18 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { meal_type, food_name, calories, logged_date } = await req.json();
+  const { meal_type, food_name, calories, logged_date, protein_g, carbs_g, fat_g, fiber_g } = await req.json();
   if (!meal_type || !food_name) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
   const id = crypto.randomUUID();
   const date = logged_date ?? new Date().toISOString().slice(0, 10);
 
   try {
-    await addFoodLog(id, session.user.id, meal_type, food_name, calories ?? null, date);
+    await addFoodLog(id, session.user.id, meal_type, food_name, calories ?? null, date, protein_g ?? null, carbs_g ?? null, fat_g ?? null, fiber_g ?? null);
   } catch {
     await runMigrations();
-    await addFoodLog(id, session.user.id, meal_type, food_name, calories ?? null, date);
+    await addFoodLog(id, session.user.id, meal_type, food_name, calories ?? null, date, protein_g ?? null, carbs_g ?? null, fat_g ?? null, fiber_g ?? null);
   }
 
-  return NextResponse.json({ log: { id, meal_type, food_name, calories: calories ?? null, logged_date: date } });
+  return NextResponse.json({ log: { id, meal_type, food_name, calories: calories ?? null, logged_date: date, protein_g: protein_g ?? null, carbs_g: carbs_g ?? null, fat_g: fat_g ?? null, fiber_g: fiber_g ?? null } });
 }
