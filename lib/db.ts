@@ -142,6 +142,25 @@ export async function runMigrations() {
       ALTER TABLE workouts ADD COLUMN IF NOT EXISTS share_id TEXT UNIQUE;
       ALTER TABLE saved_recipes ADD COLUMN IF NOT EXISTS share_id TEXT UNIQUE;
     `);
+
+    // Feature: Nutrition macros on food_logs
+    await client.query(`
+      ALTER TABLE food_logs ADD COLUMN IF NOT EXISTS protein_g NUMERIC(6,1);
+      ALTER TABLE food_logs ADD COLUMN IF NOT EXISTS carbs_g NUMERIC(6,1);
+      ALTER TABLE food_logs ADD COLUMN IF NOT EXISTS fat_g NUMERIC(6,1);
+      ALTER TABLE food_logs ADD COLUMN IF NOT EXISTS fiber_g NUMERIC(6,1);
+    `);
+
+    // Feature: Water intake tracking
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS water_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        amount_ml INTEGER NOT NULL,
+        logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_water_logs_user_date ON water_logs(user_id, logged_at DESC);
+    `);
   } finally {
     client.release();
   }
@@ -374,20 +393,34 @@ export async function renameWorkout(id: string, userId: string, title: string) {
 
 // ── Food Logs ─────────────────────────────────────────────────────────────────
 
-export type FoodLog = { id: string; meal_type: string; food_name: string; calories: number | null; logged_date: string };
+export type FoodLog = {
+  id: string;
+  meal_type: string;
+  food_name: string;
+  calories: number | null;
+  logged_date: string;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  fiber_g: number | null;
+};
 
 export async function getFoodLogs(userId: string, date: string): Promise<FoodLog[]> {
   const result = await getPool().query(
-    `SELECT id, meal_type, food_name, calories, logged_date FROM food_logs WHERE user_id = $1 AND logged_date = $2 ORDER BY created_at ASC`,
+    `SELECT id, meal_type, food_name, calories, logged_date, protein_g, carbs_g, fat_g, fiber_g FROM food_logs WHERE user_id = $1 AND logged_date = $2 ORDER BY created_at ASC`,
     [userId, date]
   );
   return result.rows;
 }
 
-export async function addFoodLog(id: string, userId: string, meal_type: string, food_name: string, calories: number | null, logged_date: string) {
+export async function addFoodLog(
+  id: string, userId: string, meal_type: string, food_name: string,
+  calories: number | null, logged_date: string,
+  protein_g?: number | null, carbs_g?: number | null, fat_g?: number | null, fiber_g?: number | null
+) {
   await getPool().query(
-    `INSERT INTO food_logs (id, user_id, meal_type, food_name, calories, logged_date) VALUES ($1, $2, $3, $4, $5, $6)`,
-    [id, userId, meal_type, food_name, calories, logged_date]
+    `INSERT INTO food_logs (id, user_id, meal_type, food_name, calories, logged_date, protein_g, carbs_g, fat_g, fiber_g) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [id, userId, meal_type, food_name, calories, logged_date, protein_g ?? null, carbs_g ?? null, fat_g ?? null, fiber_g ?? null]
   );
 }
 
@@ -396,6 +429,34 @@ export async function deleteFoodLog(id: string, userId: string) {
     `DELETE FROM food_logs WHERE id = $1 AND user_id = $2`,
     [id, userId]
   );
+}
+
+// ── Water Logs ────────────────────────────────────────────────────────────────
+
+export async function getWaterToday(userId: string): Promise<number> {
+  const date = new Date().toISOString().slice(0, 10);
+  const r = await getPool().query(
+    `SELECT COALESCE(SUM(amount_ml),0) AS total FROM water_logs WHERE user_id=$1 AND logged_at::date=$2`,
+    [userId, date]
+  );
+  return parseInt(r.rows[0].total as string);
+}
+
+export async function addWaterLog(id: string, userId: string, amount_ml: number) {
+  await getPool().query(
+    `INSERT INTO water_logs (id, user_id, amount_ml) VALUES ($1,$2,$3)`,
+    [id, userId, amount_ml]
+  );
+}
+
+export async function getWaterThisWeek(userId: string): Promise<{ date: string; total_ml: number }[]> {
+  const r = await getPool().query(
+    `SELECT logged_at::date AS date, SUM(amount_ml)::int AS total_ml
+     FROM water_logs WHERE user_id=$1 AND logged_at >= NOW() - INTERVAL '7 days'
+     GROUP BY logged_at::date ORDER BY date ASC`,
+    [userId]
+  );
+  return r.rows;
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────────

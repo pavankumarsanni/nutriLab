@@ -4,6 +4,8 @@ import { useState } from "react";
 import MacroCard from "./MacroCard";
 import WeightChart from "./WeightChart";
 import FoodDiary from "./FoodDiary";
+import WaterTracker from "./WaterTracker";
+import WeeklySummary from "./WeeklySummary";
 
 type WeightLog = { id: string; weight_kg: number; logged_at: string };
 type Profile = {
@@ -56,6 +58,12 @@ export default function ProgressDashboard({ profile, weightLogs, onAddLog, onDel
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-6 max-w-2xl mx-auto w-full space-y-6">
+
+      {/* Weekly AI Summary */}
+      <WeeklySummary />
+
+      {/* Water Tracker */}
+      <WaterTracker />
 
       {/* Calorie & Macro Calculator */}
       <MacroCard profile={profile} onEditProfile={onEditProfile} />
