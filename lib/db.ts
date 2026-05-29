@@ -161,6 +161,29 @@ export async function runMigrations() {
       );
       CREATE INDEX IF NOT EXISTS idx_water_logs_user_date ON water_logs(user_id, logged_at DESC);
     `);
+
+    // Feature: Web Push Notifications
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        endpoint TEXT NOT NULL UNIQUE,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
+
+      CREATE TABLE IF NOT EXISTS notification_preferences (
+        user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        water_reminder BOOLEAN NOT NULL DEFAULT true,
+        workout_reminder BOOLEAN NOT NULL DEFAULT true,
+        food_reminder BOOLEAN NOT NULL DEFAULT true,
+        workout_reminder_time TEXT NOT NULL DEFAULT '08:00',
+        water_interval_hours INTEGER NOT NULL DEFAULT 2,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
   } finally {
     client.release();
   }
@@ -582,4 +605,79 @@ export async function copySharedRecipe(shareId: string, userId: string): Promise
     [newId, userId, source.title, source.content]
   );
   return newId;
+}
+
+// ── Push Subscriptions ────────────────────────────────────────────────────────
+
+export async function savePushSubscription(id: string, userId: string, endpoint: string, p256dh: string, auth: string) {
+  await getPool().query(
+    `INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth)
+     VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (endpoint) DO UPDATE SET p256dh=$4, auth=$5`,
+    [id, userId, endpoint, p256dh, auth]
+  );
+}
+
+export async function deletePushSubscription(userId: string, endpoint: string) {
+  await getPool().query(
+    `DELETE FROM push_subscriptions WHERE user_id=$1 AND endpoint=$2`,
+    [userId, endpoint]
+  );
+}
+
+export async function getPushSubscriptions(userId: string) {
+  const r = await getPool().query(
+    `SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id=$1`,
+    [userId]
+  );
+  return r.rows as { endpoint: string; p256dh: string; auth: string }[];
+}
+
+export async function getAllSubscriptionsWithPrefs() {
+  const r = await getPool().query(`
+    SELECT ps.user_id, ps.endpoint, ps.p256dh, ps.auth,
+           COALESCE(np.water_reminder, true) AS water_reminder,
+           COALESCE(np.workout_reminder, true) AS workout_reminder,
+           COALESCE(np.food_reminder, true) AS food_reminder,
+           COALESCE(np.workout_reminder_time, '08:00') AS workout_reminder_time
+    FROM push_subscriptions ps
+    LEFT JOIN notification_preferences np ON ps.user_id = np.user_id
+  `);
+  return r.rows as {
+    user_id: string;
+    endpoint: string;
+    p256dh: string;
+    auth: string;
+    water_reminder: boolean;
+    workout_reminder: boolean;
+    food_reminder: boolean;
+    workout_reminder_time: string;
+  }[];
+}
+
+// ── Notification Preferences ──────────────────────────────────────────────────
+
+export async function getNotificationPrefs(userId: string) {
+  const r = await getPool().query(
+    `SELECT * FROM notification_preferences WHERE user_id=$1`,
+    [userId]
+  );
+  return r.rows[0] ?? { water_reminder: true, workout_reminder: true, food_reminder: true, workout_reminder_time: '08:00', water_interval_hours: 2 };
+}
+
+export async function upsertNotificationPrefs(userId: string, prefs: {
+  water_reminder: boolean;
+  workout_reminder: boolean;
+  food_reminder: boolean;
+  workout_reminder_time: string;
+  water_interval_hours: number;
+}) {
+  await getPool().query(
+    `INSERT INTO notification_preferences (user_id, water_reminder, workout_reminder, food_reminder, workout_reminder_time, water_interval_hours)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     ON CONFLICT (user_id) DO UPDATE SET
+       water_reminder=$2, workout_reminder=$3, food_reminder=$4,
+       workout_reminder_time=$5, water_interval_hours=$6, updated_at=NOW()`,
+    [userId, prefs.water_reminder, prefs.workout_reminder, prefs.food_reminder, prefs.workout_reminder_time, prefs.water_interval_hours]
+  );
 }

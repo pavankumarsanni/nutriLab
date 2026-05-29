@@ -6,6 +6,7 @@ import WeightChart from "./WeightChart";
 import FoodDiary from "./FoodDiary";
 import WaterTracker from "./WaterTracker";
 import WeeklySummary from "./WeeklySummary";
+import NotificationSettings from "./NotificationSettings";
 
 type WeightLog = { id: string; weight_kg: number; logged_at: string };
 type Profile = {
@@ -156,6 +157,9 @@ export default function ProgressDashboard({ profile, weightLogs, onAddLog, onDel
           </div>
         </div>
       )}
+
+      {/* Notification Settings */}
+      <NotificationSettings />
     </div>
   );
 }
