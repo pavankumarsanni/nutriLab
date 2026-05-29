@@ -24,7 +24,6 @@ type NotifPrefs = {
 type PermissionStatus = "unsupported" | "default" | "granted" | "denied";
 
 export default function NotificationSettings() {
-  const [supported, setSupported] = useState(false);
   const [permStatus, setPermStatus] = useState<PermissionStatus>("default");
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -53,7 +52,6 @@ export default function NotificationSettings() {
 
   useEffect(() => {
     const isSupported = "serviceWorker" in navigator && "PushManager" in window;
-    setSupported(isSupported);
     if (!isSupported) {
       setPermStatus("unsupported");
       return;
