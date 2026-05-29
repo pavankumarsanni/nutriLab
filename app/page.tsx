@@ -10,6 +10,7 @@ import MealPlanModal from "./components/MealPlanModal";
 import SavedPlans from "./components/SavedPlans";
 import WorkoutModal from "./components/WorkoutModal";
 import SavedWorkouts from "./components/SavedWorkouts";
+import WorkoutHistory from "./components/WorkoutHistory";
 import BodyAssessmentModal from "./components/BodyAssessmentModal";
 import ProfileSetupModal from "./components/ProfileSetupModal";
 import ProgressDashboard from "./components/ProgressDashboard";
@@ -22,6 +23,8 @@ type MealPlan = { id: string; title: string; goal: string; diet: string; duratio
 type Workout = { id: string; title: string; goal: string; target: string; level: string; equipment: string; duration: number; content: string; created_at: string };
 type UserProfile = { height_cm: number | null; current_weight_kg: number | null; target_weight_kg: number | null; age: number | null; activity_level: string | null; injuries: string | null; sex: string | null; fitness_goal: string | null };
 type WeightLog = { id: string; weight_kg: number; logged_at: string };
+type WorkoutLogEntry = { id: string; workout_id: string | null; workout_title: string; duration_secs: number; mood: string | null; notes: string | null; logged_at: string };
+type WorkoutLogSet = { id: string; log_id: string; exercise_name: string; set_number: number; reps: number | null; weight_kg: number | null };
 
 const SUGGESTIONS = [
   { label: "🔥 Foods that boost metabolism", prompt: "What foods naturally boost metabolism and how do they work?" },
@@ -64,6 +67,9 @@ export default function Home() {
   const [userProfile, setUserProfile] = useState<UserProfile | null | undefined>(undefined);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
+  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLogEntry[]>([]);
+  const [workoutLogSets, setWorkoutLogSets] = useState<WorkoutLogSet[]>([]);
+  const [workoutSubTab, setWorkoutSubTab] = useState<"workouts" | "history">("workouts");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -79,6 +85,7 @@ export default function Home() {
       fetchWorkouts();
       fetchUserProfile();
       fetchWeightLogs();
+      fetchWorkoutLogs();
     }
   }, [session]);
 
@@ -155,6 +162,19 @@ export default function Home() {
     const res = await fetch("/api/weight-logs");
     const data = await res.json();
     if (data.logs) setWeightLogs(data.logs);
+  };
+
+  const fetchWorkoutLogs = async () => {
+    const res = await fetch("/api/workout-logs");
+    const data = await res.json();
+    if (data.logs) setWorkoutLogs(data.logs);
+    if (data.sets) setWorkoutLogSets(data.sets);
+  };
+
+  const handleDeleteLog = async (id: string) => {
+    await fetch(`/api/workout-logs/${id}`, { method: "DELETE" });
+    setWorkoutLogs((prev) => prev.filter((l) => l.id !== id));
+    setWorkoutLogSets((prev) => prev.filter((s) => s.log_id !== id));
   };
 
   const handleAddWeightLog = async (weight_kg: number, logged_at: string) => {
@@ -474,23 +494,55 @@ export default function Home() {
       )}
       {activeTab === "workouts" && (
         <>
-          {/* Body Assessment entry card */}
-          <div className="px-4 pt-4 max-w-2xl mx-auto w-full">
+          {/* Workout sub-tab bar */}
+          <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 flex gap-1 flex-shrink-0">
             <button
-              onClick={() => setShowBodyAssessment(true)}
-              className="w-full flex items-center gap-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-700 rounded-2xl px-4 py-3 hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-900/30 dark:hover:to-blue-900/30 transition-all"
+              onClick={() => setWorkoutSubTab("workouts")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                workoutSubTab === "workouts"
+                  ? "border-green-600 text-green-700 dark:text-green-400"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              }`}
             >
-              <span className="text-2xl">📸</span>
-              <div className="text-left">
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Body Assessment</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Get AI analysis of your current physique and a personalised plan</p>
-              </div>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-400 ml-auto flex-shrink-0">
-                <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-              </svg>
+              🏋️ Workouts
+            </button>
+            <button
+              onClick={() => setWorkoutSubTab("history")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                workoutSubTab === "history"
+                  ? "border-green-600 text-green-700 dark:text-green-400"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              }`}
+            >
+              📈 History
             </button>
           </div>
-          <SavedWorkouts workouts={workouts} onDelete={handleDeleteWorkout} onRename={handleRenameWorkout} onGenerate={() => setShowWorkoutModal(true)} />
+
+          {workoutSubTab === "workouts" && (
+            <>
+              {/* Body Assessment entry card */}
+              <div className="px-4 pt-4 max-w-2xl mx-auto w-full">
+                <button
+                  onClick={() => setShowBodyAssessment(true)}
+                  className="w-full flex items-center gap-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-700 rounded-2xl px-4 py-3 hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-900/30 dark:hover:to-blue-900/30 transition-all"
+                >
+                  <span className="text-2xl">📸</span>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Body Assessment</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Get AI analysis of your current physique and a personalised plan</p>
+                  </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-400 ml-auto flex-shrink-0">
+                    <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+              <SavedWorkouts workouts={workouts} onDelete={handleDeleteWorkout} onRename={handleRenameWorkout} onGenerate={() => setShowWorkoutModal(true)} />
+            </>
+          )}
+
+          {workoutSubTab === "history" && (
+            <WorkoutHistory logs={workoutLogs} sets={workoutLogSets} onDelete={handleDeleteLog} />
+          )}
         </>
       )}
       {activeTab === "progress" && (
