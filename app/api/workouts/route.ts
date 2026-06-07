@@ -131,7 +131,7 @@ MULTI-DAY schema (multiple sessions — include ALL days, each 45-60 min, max 5 
 }`;
 
     const customMessage = await client.messages.create({
-      model: "claude-sonnet-4-5",
+      model: "claude-sonnet-4-6",
       max_tokens: 8000,
       messages: [{ role: "user", content: customPrompt }],
     });
@@ -191,7 +191,7 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no extra
 Include 3-4 warm-up exercises, 5-7 main exercises, and 3-4 cool-down stretches. Make it practical and achievable within ${duration} minutes.`;
 
   const message = await client.messages.create({
-    model: "claude-sonnet-4-5",
+    model: "claude-sonnet-4-6",
     max_tokens: 6000,
     messages: [{ role: "user", content: prompt }],
   });

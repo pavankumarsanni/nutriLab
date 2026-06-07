@@ -70,7 +70,7 @@ Format the plan clearly with:
 Keep meals practical and science-backed. Use markdown formatting.`;
 
     const customMessage = await client.messages.create({
-      model: "claude-sonnet-4-5",
+      model: "claude-sonnet-4-6",
       max_tokens: 2500,
       messages: [{ role: "user", content: customPrompt }],
     });
@@ -116,7 +116,7 @@ Format the plan clearly with:
 Keep meals practical, delicious and science-backed. Include brief notes on WHY each meal supports the goal. Use markdown formatting with headers and bold text.`;
 
   const message = await client.messages.create({
-    model: "claude-sonnet-4-5",
+    model: "claude-sonnet-4-6",
     max_tokens: 2500,
     messages: [{ role: "user", content: prompt }],
   });

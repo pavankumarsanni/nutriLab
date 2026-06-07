@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   if (!image_base64 || !media_type) return NextResponse.json({ error: "Missing image data" }, { status: 400 });
 
   const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: "claude-haiku-4-5",
     max_tokens: 128,
     messages: [
       {
