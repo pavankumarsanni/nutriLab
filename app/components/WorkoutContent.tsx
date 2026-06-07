@@ -462,15 +462,14 @@ export default function WorkoutContent({ content, workoutId, workoutTitle }: { c
         }),
       });
       const data = res.ok ? await res.json() : null;
-      const kcal = data?.caloriesBurned ?? null;
-      setCaloriesBurned(kcal);
+      const kcal: number | null = data?.caloriesBurned ?? null;
       setShowFinish(false);
       setMood("");
       setNotes("");
       loggedSetsRef.current = [];
       timers.resetSession();
       setToast(kcal ? `✅ Session saved! ~${kcal} kcal burned 🔥` : "✅ Session saved!");
-      setTimeout(() => { setToast(""); setCaloriesBurned(null); }, 5000);
+      setTimeout(() => setToast(""), 5000);
     } catch {
       // ignore
     } finally {
@@ -487,7 +486,6 @@ export default function WorkoutContent({ content, workoutId, workoutTitle }: { c
   };
 
   const [toast, setToast] = useState("");
-  const [caloriesBurned, setCaloriesBurned] = useState<number | null>(null);
 
   // Fallback for old markdown-format workouts
   if (!plan) {
