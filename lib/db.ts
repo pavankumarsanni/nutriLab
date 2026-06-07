@@ -175,6 +175,7 @@ export async function runMigrations() {
         logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_workout_logs_user ON workout_logs(user_id, logged_at DESC);
+      ALTER TABLE workout_logs ADD COLUMN IF NOT EXISTS calories_burned INTEGER;
 
       CREATE TABLE IF NOT EXISTS workout_log_sets (
         id TEXT PRIMARY KEY,
@@ -637,14 +638,15 @@ export async function copySharedRecipe(shareId: string, userId: string): Promise
 export async function saveWorkoutLog(
   id: string, userId: string, workoutId: string | null, workoutTitle: string,
   durationSecs: number, mood: string | null, notes: string | null,
-  sets: { exerciseName: string; setNumber: number; reps: number | null; weightKg: number | null }[]
+  sets: { exerciseName: string; setNumber: number; reps: number | null; weightKg: number | null }[],
+  caloriesBurned: number | null
 ) {
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");
     await client.query(
-      `INSERT INTO workout_logs (id, user_id, workout_id, workout_title, duration_secs, mood, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [id, userId, workoutId, workoutTitle, durationSecs, mood, notes]
+      `INSERT INTO workout_logs (id, user_id, workout_id, workout_title, duration_secs, mood, notes, calories_burned) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [id, userId, workoutId, workoutTitle, durationSecs, mood, notes, caloriesBurned]
     );
     for (const s of sets) {
       await client.query(
@@ -663,7 +665,7 @@ export async function saveWorkoutLog(
 
 export async function getWorkoutLogs(userId: string) {
   const logs = await getPool().query(
-    `SELECT id, workout_id, workout_title, duration_secs, mood, notes, logged_at FROM workout_logs WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 50`,
+    `SELECT id, workout_id, workout_title, duration_secs, mood, notes, calories_burned, logged_at FROM workout_logs WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 50`,
     [userId]
   );
   const sets = await getPool().query(

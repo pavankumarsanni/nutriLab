@@ -449,7 +449,7 @@ export default function WorkoutContent({ content, workoutId, workoutTitle }: { c
     setSaving(true);
     try {
       const title = workoutTitle ?? (plan ? (plan.days?.[activeDay]?.label ?? "Workout") : "Workout");
-      await fetch("/api/workout-logs", {
+      const res = await fetch("/api/workout-logs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -461,15 +461,15 @@ export default function WorkoutContent({ content, workoutId, workoutTitle }: { c
           sets: loggedSetsRef.current,
         }),
       });
-      // Success toast via simple alert for now; real toast via state
+      const data = res.ok ? await res.json() : null;
+      const kcal: number | null = data?.caloriesBurned ?? null;
       setShowFinish(false);
       setMood("");
       setNotes("");
       loggedSetsRef.current = [];
       timers.resetSession();
-      // Show a brief success message
-      setToast("✅ Session saved!");
-      setTimeout(() => setToast(""), 3000);
+      setToast(kcal ? `✅ Session saved! ~${kcal} kcal burned 🔥` : "✅ Session saved!");
+      setTimeout(() => setToast(""), 5000);
     } catch {
       // ignore
     } finally {
@@ -498,12 +498,29 @@ export default function WorkoutContent({ content, workoutId, workoutTitle }: { c
 
   const handleSetDone = (restSecs: number) => { timers.startRest(restSecs); timers.autoStartSession(); };
 
+  // Live calorie preview shown in finish panel (rough estimate, same formula as server)
+  const liveCaloriePreview = (() => {
+    const sets = loggedSetsRef.current;
+    const totalVolume = sets.reduce(
+      (sum, s) => sum + (s.weightKg != null && s.reps != null ? s.weightKg * s.reps : 0), 0
+    );
+    const lifting = totalVolume * 0.1;
+    const activity = (timers.sessionSeconds / 60) * 75 * (3.5 / 200); // 75kg default
+    return Math.max(1, Math.round(lifting + activity));
+  })();
+
   const finishPanel = showFinish && (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 space-y-4 shadow-lg">
       <h3 className="font-semibold text-gray-900 dark:text-gray-100">🏁 Finish Session</h3>
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-500 dark:text-gray-400">Duration:</span>
-        <span className="text-sm font-bold text-green-600">{formatTime(timers.sessionSeconds)}</span>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 dark:text-gray-400">Duration:</span>
+          <span className="text-sm font-bold text-green-600">{formatTime(timers.sessionSeconds)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 dark:text-gray-400">Est. calories:</span>
+          <span className="text-sm font-bold text-orange-500">~{liveCaloriePreview} kcal 🔥</span>
+        </div>
       </div>
       {/* Mood */}
       <div>

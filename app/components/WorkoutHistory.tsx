@@ -2,7 +2,7 @@
 import { useState } from "react";
 
 type LogSet = { id: string; log_id: string; exercise_name: string; set_number: number; reps: number | null; weight_kg: number | null };
-type WorkoutLog = { id: string; workout_id: string | null; workout_title: string; duration_secs: number; mood: string | null; notes: string | null; logged_at: string };
+type WorkoutLog = { id: string; workout_id: string | null; workout_title: string; duration_secs: number; mood: string | null; notes: string | null; calories_burned: number | null; logged_at: string };
 
 type Props = {
   logs: WorkoutLog[];
@@ -153,7 +153,7 @@ export default function WorkoutHistory({ logs, sets, onDelete }: Props) {
                             {log.mood && <span className="text-base">{log.mood}</span>}
                           </div>
                           <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                            {new Date(log.logged_at).toLocaleDateString('en-GB', {weekday:'short',day:'numeric',month:'short'})} · {Math.round(log.duration_secs/60)}min · {totalSets} sets
+                            {new Date(log.logged_at).toLocaleDateString('en-GB', {weekday:'short',day:'numeric',month:'short'})} · {Math.round(log.duration_secs/60)}min · {totalSets} sets{log.calories_burned ? ` · 🔥 ~${log.calories_burned} kcal` : ""}
                           </p>
                         </div>
                       </div>
