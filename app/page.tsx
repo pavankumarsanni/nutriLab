@@ -23,7 +23,7 @@ type MealPlan = { id: string; title: string; goal: string; diet: string; duratio
 type Workout = { id: string; title: string; goal: string; target: string; level: string; equipment: string; duration: number; content: string; created_at: string };
 type UserProfile = { height_cm: number | null; current_weight_kg: number | null; target_weight_kg: number | null; age: number | null; activity_level: string | null; injuries: string | null; sex: string | null; fitness_goal: string | null };
 type WeightLog = { id: string; weight_kg: number; logged_at: string };
-type WorkoutLogEntry = { id: string; workout_id: string | null; workout_title: string; duration_secs: number; mood: string | null; notes: string | null; logged_at: string };
+type WorkoutLogEntry = { id: string; workout_id: string | null; workout_title: string; duration_secs: number; mood: string | null; notes: string | null; calories_burned: number | null; logged_at: string };
 type WorkoutLogSet = { id: string; log_id: string; exercise_name: string; set_number: number; reps: number | null; weight_kg: number | null };
 
 const SUGGESTIONS = [
