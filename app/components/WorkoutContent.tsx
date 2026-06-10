@@ -25,6 +25,30 @@ type WorkoutPlan = {
 
 type LoggedSet = { exerciseName: string; setNumber: number; reps: number | null; weightKg: number | null };
 
+// ── Exercise type detection ───────────────────────────────────────────────────
+const TIMED_KEYWORDS = [
+  'plank', 'wall sit', 'wall-sit', 'hollow hold', 'dead hang', 'l-sit',
+  'side plank', 'superman hold', 'isometric', 'hold',
+];
+const BODYWEIGHT_KEYWORDS = [
+  'push-up', 'push up', 'pushup',
+  'pull-up', 'pull up', 'pullup',
+  'chin-up', 'chin up', 'chinup',
+  'dip', 'sit-up', 'sit up', 'situp',
+  'crunch', 'leg raise', 'mountain climber', 'burpee',
+  'jumping jack', 'jump squat', 'squat jump',
+  'bodyweight squat', 'air squat',
+  'glute bridge', 'hip thrust',
+  'inverted row', 'pike push',
+];
+
+function getExerciseType(name: string): "weighted" | "bodyweight" | "timed" {
+  const lower = name.toLowerCase();
+  if (TIMED_KEYWORDS.some(k => lower.includes(k))) return "timed";
+  if (BODYWEIGHT_KEYWORDS.some(k => lower.includes(k))) return "bodyweight";
+  return "weighted";
+}
+
 function parseContent(content: string): WorkoutPlan | null {
   try { return JSON.parse(content) as WorkoutPlan; } catch { /* continue */ }
   const fenceMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
@@ -713,11 +737,12 @@ function ExerciseCard({ exercise, index, onSetDone, onLogSet, unit, defaultOpen 
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [completedSets, setCompletedSets] = useState<Set<number>>(new Set());
-  const [setData, setSetData] = useState<Record<number, { reps: string; weight: string }>>({});
+  const [setData, setSetData] = useState<Record<number, { reps: string; weight: string; secs: string }>>({});
   const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.youtube_query)}`;
   const numSets = parseSets(exercise.sets);
   const restSecs = parseRestSeconds(exercise.rest);
   const allDone = completedSets.size === numSets;
+  const exType = getExerciseType(exercise.name);
 
   const toKg = (val: string) => {
     const n = parseFloat(val);
@@ -738,8 +763,11 @@ function ExerciseCard({ exercise, index, onSetDone, onLogSet, unit, defaultOpen 
         onLogSet({
           exerciseName: exercise.name,
           setNumber: i + 1,
-          reps: d?.reps ? parseInt(d.reps) : null,
-          weightKg: d?.weight ? toKg(d.weight) : null, // always stored as kg
+          // timed → store seconds as reps; bodyweight → reps only; weighted → reps + weight
+          reps: exType === "timed"
+            ? (d?.secs ? parseInt(d.secs) : null)
+            : (d?.reps ? parseInt(d.reps) : null),
+          weightKg: exType === "weighted" ? (d?.weight ? toKg(d.weight) : null) : null,
         });
       }
       return next;
@@ -787,7 +815,11 @@ function ExerciseCard({ exercise, index, onSetDone, onLogSet, unit, defaultOpen 
           {/* Badges */}
           <div className="flex gap-2 flex-wrap">
             <Badge label="Sets" value={exercise.sets} />
-            <Badge label="Reps" value={exercise.reps} />
+            {exType === "timed"
+              ? <Badge label="Duration" value={exercise.reps} />
+              : <Badge label="Reps" value={exercise.reps} />
+            }
+            {exType === "bodyweight" && <Badge label="Type" value="Bodyweight" />}
             <Badge label="Rest" value={exercise.rest} />
           </div>
 
@@ -818,25 +850,55 @@ function ExerciseCard({ exercise, index, onSetDone, onLogSet, unit, defaultOpen 
             <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">Rest timer starts automatically when you tick a set</p>
           </div>
 
-          {/* Weight/reps log inputs */}
+          {/* Weight/reps log inputs — adapts to exercise type */}
           <div className="mt-3 space-y-2">
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Log your sets</p>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              {exType === "timed" ? "Log your hold times" : "Log your sets"}
+            </p>
             <div className="space-y-2">
               {Array.from({ length: numSets }).map((_, i) => (
                 <div key={i} className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${completedSets.has(i) ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-10 flex-shrink-0">Set {i+1}</span>
-                  <input type="number" placeholder={unit} min="0" step={unit === "lbs" ? "1" : "0.5"}
-                    value={setData[i]?.weight ?? ''}
-                    onChange={e => setSetData(prev => ({...prev, [i]: {...prev[i], weight: e.target.value}}))}
-                    className="w-16 text-center text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-green-400"
-                  />
-                  <span className="text-xs text-gray-400">{unit}</span>
-                  <input type="number" placeholder="reps" min="0"
-                    value={setData[i]?.reps ?? ''}
-                    onChange={e => setSetData(prev => ({...prev, [i]: {...prev[i], reps: e.target.value}}))}
-                    className="w-16 text-center text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-green-400"
-                  />
-                  <span className="text-xs text-gray-400">reps</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-10 flex-shrink-0">
+                    {exType === "timed" ? `Hold ${i+1}` : `Set ${i+1}`}
+                  </span>
+
+                  {/* Weighted: weight + reps */}
+                  {exType === "weighted" && (<>
+                    <input type="number" placeholder={unit} min="0" step={unit === "lbs" ? "1" : "0.5"}
+                      value={setData[i]?.weight ?? ''}
+                      onChange={e => setSetData(prev => ({...prev, [i]: {...(prev[i] ?? {}), weight: e.target.value}}))}
+                      className="w-16 text-center text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-green-400"
+                    />
+                    <span className="text-xs text-gray-400">{unit}</span>
+                    <input type="number" placeholder="reps" min="0"
+                      value={setData[i]?.reps ?? ''}
+                      onChange={e => setSetData(prev => ({...prev, [i]: {...(prev[i] ?? {}), reps: e.target.value}}))}
+                      className="w-16 text-center text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-green-400"
+                    />
+                    <span className="text-xs text-gray-400">reps</span>
+                  </>)}
+
+                  {/* Bodyweight: reps only */}
+                  {exType === "bodyweight" && (<>
+                    <span className="text-xs text-gray-400 italic">Bodyweight</span>
+                    <input type="number" placeholder="reps" min="0"
+                      value={setData[i]?.reps ?? ''}
+                      onChange={e => setSetData(prev => ({...prev, [i]: {...(prev[i] ?? {}), reps: e.target.value}}))}
+                      className="w-16 text-center text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-green-400"
+                    />
+                    <span className="text-xs text-gray-400">reps</span>
+                  </>)}
+
+                  {/* Timed: seconds only */}
+                  {exType === "timed" && (<>
+                    <input type="number" placeholder="secs" min="0"
+                      value={setData[i]?.secs ?? ''}
+                      onChange={e => setSetData(prev => ({...prev, [i]: {...(prev[i] ?? {}), secs: e.target.value}}))}
+                      className="w-20 text-center text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-green-400"
+                    />
+                    <span className="text-xs text-gray-400">seconds</span>
+                  </>)}
+
                   {completedSets.has(i) && <span className="text-green-500 ml-auto">✓</span>}
                 </div>
               ))}
