@@ -32,7 +32,7 @@ ${profileContext}
 Answer questions about this workout, suggest modifications, explain exercises, offer alternatives, and give coaching advice. Keep responses concise and practical. If the user asks to modify the plan (e.g. replace an exercise, make it harder/easier, remove equipment), suggest the specific change clearly.`;
 
   const stream = await client.messages.stream({
-    model: "claude-sonnet-4-5",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: systemPrompt,
     messages,

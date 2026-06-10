@@ -32,7 +32,7 @@ ${profileContext}
 Answer questions about this meal plan, suggest modifications, explain nutritional benefits, offer ingredient swaps, and give dietary advice. Keep responses concise and practical. If the user asks to modify the plan (e.g. swap a meal, make it higher protein, remove an allergen), suggest the specific change clearly.`;
 
   const stream = await client.messages.stream({
-    model: "claude-sonnet-4-5",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: systemPrompt,
     messages,
