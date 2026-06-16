@@ -49,12 +49,28 @@ function getExerciseType(name: string): "weighted" | "bodyweight" | "timed" {
   return "weighted";
 }
 
+function isValidPlan(obj: unknown): obj is WorkoutPlan {
+  if (!obj || typeof obj !== "object") return false;
+  const p = obj as Record<string, unknown>;
+  // Must have either a non-empty exercises array (single-day) or a days array (multi-day)
+  const hasSingleDay = Array.isArray(p.exercises) && (p.exercises as unknown[]).length > 0;
+  const hasMultiDay  = Array.isArray(p.days)      && (p.days as unknown[]).length > 0;
+  return hasSingleDay || hasMultiDay;
+}
+
 function parseContent(content: string): WorkoutPlan | null {
-  try { return JSON.parse(content) as WorkoutPlan; } catch { /* continue */ }
+  const attempts: string[] = [content];
   const fenceMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (fenceMatch) { try { return JSON.parse(fenceMatch[1].trim()) as WorkoutPlan; } catch { /* continue */ } }
+  if (fenceMatch) attempts.push(fenceMatch[1].trim());
   const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (jsonMatch) { try { return JSON.parse(jsonMatch[0]) as WorkoutPlan; } catch { /* continue */ } }
+  if (jsonMatch) attempts.push(jsonMatch[0].trim());
+
+  for (const attempt of attempts) {
+    try {
+      const parsed = JSON.parse(attempt);
+      if (isValidPlan(parsed)) return parsed as WorkoutPlan;
+    } catch { /* continue */ }
+  }
   return null;
 }
 
@@ -511,8 +527,24 @@ export default function WorkoutContent({ content, workoutId, workoutTitle }: { c
 
   const [toast, setToast] = useState("");
 
-  // Fallback for old markdown-format workouts
+  // Fallback — if content is genuine old-style markdown (not JSON), render it.
+  // If it looks like JSON that failed to parse, show a friendly error instead.
   if (!plan) {
+    const looksLikeJson = content.trim().startsWith("{") || content.includes("```json");
+    if (looksLikeJson) {
+      return (
+        <div className="flex flex-col items-center gap-4 py-10 text-center">
+          <span className="text-4xl">⚠️</span>
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+            Something went wrong generating your workout
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs">
+            The response didn&apos;t come back in the expected format. Please try generating a new workout.
+          </p>
+        </div>
+      );
+    }
+    // Genuine markdown (legacy workouts saved before JSON format)
     return (
       <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1.5 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
