@@ -6,6 +6,32 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
 
+/** Extract the first valid JSON object from a Claude response string. */
+function extractJson(raw: string): string | null {
+  let text = raw.trim();
+  // Strip ```json ... ``` or ``` ... ``` fences
+  const fence = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fence) text = fence[1].trim();
+  // Already starts with { — take it
+  if (text.startsWith("{")) return text;
+  // Find the first { ... } block in any surrounding prose
+  const block = text.match(/\{[\s\S]*\}/);
+  if (block) return block[0].trim();
+  return null;
+}
+
+/** Return true only if the JSON string has the workout plan shape we need. */
+function isValidWorkoutJson(json: string): boolean {
+  try {
+    const p = JSON.parse(json) as Record<string, unknown>;
+    const hasSingle = Array.isArray(p.exercises) && (p.exercises as unknown[]).length > 0;
+    const hasMulti  = Array.isArray(p.days)      && (p.days as unknown[]).length > 0;
+    return hasSingle || hasMulti;
+  } catch { return false; }
+}
+
+const RETRY_SUFFIX = "\n\nIMPORTANT: Your previous response contained extra text or was not valid JSON. Return ONLY the raw JSON object — no markdown fences, no explanation, no preamble. Start your response with { and end with }.";
+
 const GOAL_LABELS: Record<string, string> = {
   weight_loss: "Weight Loss",
   muscle_gain: "Muscle Gain",
@@ -136,12 +162,23 @@ MULTI-DAY schema (multiple sessions — include ALL days, each 45-60 min, max 5 
       messages: [{ role: "user", content: customPrompt }],
     });
 
-    let customContent = customMessage.content[0].type === "text" ? customMessage.content[0].text.trim() : "";
-    const fenceMatch = customContent.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-    if (fenceMatch) customContent = fenceMatch[1].trim();
-    if (!customContent.startsWith("{")) {
-      const jsonMatch = customContent.match(/\{[\s\S]*\}/);
-      if (jsonMatch) customContent = jsonMatch[0].trim();
+    const customRaw = customMessage.content[0].type === "text" ? customMessage.content[0].text : "";
+    let customContent = extractJson(customRaw) ?? customRaw.trim();
+
+    // Retry once if the response isn't a valid workout plan
+    if (!isValidWorkoutJson(customContent)) {
+      const retryMsg = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 8000,
+        messages: [
+          { role: "user", content: customPrompt },
+          { role: "assistant", content: customRaw },
+          { role: "user", content: RETRY_SUFFIX },
+        ],
+      });
+      const retryRaw = retryMsg.content[0].type === "text" ? retryMsg.content[0].text : "";
+      const retryJson = extractJson(retryRaw);
+      if (retryJson && isValidWorkoutJson(retryJson)) customContent = retryJson;
     }
     const customTitle = customRequest.slice(0, 60) + (customRequest.length > 60 ? "…" : "");
     if (save) {
@@ -197,18 +234,24 @@ Include 3-4 warm-up exercises, 5-7 main exercises, and 3-4 cool-down stretches. 
   });
 
   const raw = message.content[0].type === "text" ? message.content[0].text : "";
+  let content = extractJson(raw) ?? raw.trim();
 
-  // Strip markdown code fences if Claude wrapped the JSON
-  let content = raw.trim();
-  const fenceMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (fenceMatch) {
-    content = fenceMatch[1].trim();
+  // If the extracted content isn't a valid workout plan, retry once with a stricter prompt
+  if (!isValidWorkoutJson(content)) {
+    const retryMessage = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 6000,
+      messages: [
+        { role: "user", content: prompt },
+        { role: "assistant", content: raw },
+        { role: "user", content: RETRY_SUFFIX },
+      ],
+    });
+    const retryRaw = retryMessage.content[0].type === "text" ? retryMessage.content[0].text : "";
+    const retryJson = extractJson(retryRaw);
+    if (retryJson && isValidWorkoutJson(retryJson)) content = retryJson;
   }
-  // If still not valid JSON, try extracting the first { ... } block
-  if (!content.startsWith("{")) {
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) content = jsonMatch[0].trim();
-  }
+
   const title = `${goalLabel} · ${targetLabel} · ${duration} min`;
 
   if (save) {
