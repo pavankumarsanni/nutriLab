@@ -14,51 +14,28 @@ export async function GET(req: Request) {
   }
   await runMigrations();
 
-  const now = new Date();
-  const hour = now.getUTCHours();
-  const minute = now.getUTCMinutes();
-
   const subs = await getAllSubscriptionsWithPrefs();
   const sends: Promise<void>[] = [];
 
   for (const sub of subs) {
     const pushSub = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
 
-    // Workout reminder — match user's preferred time (UTC, approx within same hour)
-    if (sub.workout_reminder && sub.workout_reminder_time.slice(0, 2) === String(hour).padStart(2, '0')) {
-      sends.push(
-        webpush.sendNotification(pushSub, JSON.stringify({
-          title: "🏋️ Workout Reminder",
-          body: "Time to crush your workout! Open NutriFitLab to get started.",
-          tag: "workout-reminder",
-          url: "/"
-        })).then(() => {}).catch(() => {})
-      );
-    }
+    // Build a single morning digest message based on enabled reminders
+    const lines: string[] = [];
+    if (sub.workout_reminder) lines.push("🏋️ Time to plan your workout");
+    if (sub.water_reminder)   lines.push("💧 Aim for 2.5L of water today");
+    if (sub.food_reminder)    lines.push("🥗 Remember to log your meals");
 
-    // Water reminder — every 2 hours between 8am-8pm UTC
-    if (sub.water_reminder && hour >= 8 && hour <= 20 && hour % 2 === 0 && minute < 5) {
-      sends.push(
-        webpush.sendNotification(pushSub, JSON.stringify({
-          title: "💧 Hydration Check",
-          body: "Have you had enough water? Stay hydrated for peak performance!",
-          tag: "water-reminder",
-          url: "/"
-        })).then(() => {}).catch(() => {})
-      );
-    }
+    if (lines.length === 0) continue;
 
-    // Food diary reminder at 7pm UTC if food_reminder enabled
-    if (sub.food_reminder && hour === 19 && minute < 5) {
-      sends.push(
-        webpush.sendNotification(pushSub, JSON.stringify({
-          title: "🥗 Food Diary Reminder",
-          body: "Don't forget to log your meals today! Track your nutrition progress.",
-          tag: "food-reminder",
-          url: "/"
-        })).then(() => {}).catch(() => {})
-      );
-    }
+    sends.push(
+      webpush.sendNotification(pushSub, JSON.stringify({
+        title: "☀️ Good morning — NutriFitLab",
+        body: lines.join(" · "),
+        tag: "daily-digest",
+        url: "/",
+      })).then(() => {}).catch(() => {})
+    );
   }
 
   await Promise.all(sends);
